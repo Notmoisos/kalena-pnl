@@ -24,20 +24,21 @@ env:
     value: kalena
     # Same as API_KEY above but with the long form secret reference with pinned version.
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: AIzaSyBhSXM6ve5j1BkkS0kicwgscdoKc-GcsIE
+    value: <AIzaSyBrgo_g9bAVaqLF2DSmJ33nXMSY9z4RVQ8>
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: kalena-pnl.firebaseapp.com
+    value: kalenaweb.firebaseapp.com
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: kalena-pnl
+    value: kalenaweb
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: kalena-pnl.firebasestorage.app
+    value: kalenaweb.firebasestorage.app
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: 920358073416
+    value: <106850260372>
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: 1:920358073416:web:346a83a8cb3fc53640547d
+    value: <1:106850260372:web:0b10574213380e4cbdab81>  
   - variable: BQ_PROJECT_ID
     value: kalenapnl
   - variable: BQ_TABLE
     value: kalenapnl.kalena.etl_notas_view
+  
 
 
