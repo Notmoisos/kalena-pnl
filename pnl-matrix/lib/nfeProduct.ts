@@ -1,10 +1,6 @@
-import { BigQuery } from '@google-cloud/bigquery'
 import { FamilyKind } from './nfeFamily'
-
-const bq = new BigQuery({
-  projectId: process.env.BQ_PROJECT_ID,
-  keyFilename: process.env.BQ_KEYFILE,
-})
+import { getBigQuery } from './bq';
+const bq = getBigQuery();
 
 export interface ProductApiRow {
   produto: string       // parsed_x_prod_value

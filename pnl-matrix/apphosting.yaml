@@ -23,11 +23,6 @@ env:
   - variable: MYSQL_DATABASE
     value: kalena
     # Same as API_KEY above but with the long form secret reference with pinned version.
-  - variable: BQ_PROJECT_ID
-    value: kalena-pnl
-    # Same as API_KEY above but with the long form secret reference with pinned version.
-  - variable: BQ_TABLE
-    value: kalena-pnl.kalena.etl_notas_view
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: AIzaSyBhSXM6ve5j1BkkS0kicwgscdoKc-GcsIE
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
@@ -40,3 +35,9 @@ env:
     value: 920358073416
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: 1:920358073416:web:346a83a8cb3fc53640547d
+  - variable: BQ_PROJECT_ID
+    value: kalenapnl
+  - variable: BQ_TABLE
+    value: kalenapnl.kalena.etl_notas_view
+
+

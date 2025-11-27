@@ -1,11 +1,7 @@
-import { BigQuery } from '@google-cloud/bigquery'
 import { FamilyApiRow } from './nfeFamily'
 import { ProductApiRow } from './nfeProduct'
-
-const bq = new BigQuery({
-  projectId: process.env.BQ_PROJECT_ID,
-  keyFilename: process.env.BQ_KEYFILE,
-})
+import { getBigQuery } from './bq';
+const bq = getBigQuery();
 
 type VolumeKind = 'ReceitaBruta' | 'Devolucao'
 

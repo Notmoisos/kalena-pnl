@@ -1,5 +1,5 @@
-import { BigQuery } from '@google-cloud/bigquery';
-const bq=new BigQuery({ projectId:process.env.BQ_PROJECT_ID, keyFilename:process.env.BQ_KEYFILE });
+import { getBigQuery } from './bq';
+const bq = getBigQuery();
 export type CogsKind='CPV'|'CPV_Boni'|'Perdas'|'CPV_Devol';
 export interface CogsAgg{Periodo:string;kind:CogsKind;valor:number;sign:'+'|'-';}
 export interface CogsDetail{produto:string;n_nfes:number;valor_total:number;}
