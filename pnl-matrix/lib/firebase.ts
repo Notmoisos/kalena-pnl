@@ -1,13 +1,13 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  apiKey: "AIzaSyBrgo_g9bAVaqLF2DSmJ33nXMSY9z4RVQ8",  
+  authDomain: "kalenaweb.firebaseapp.com",
+  projectId: "kalenaweb",
+  storageBucket: "kalenaweb.appspot.com",
+  messagingSenderId: "106850260372",
+  appId: "1:106850260372:web:0b10574213380e4cbdab81"
 };
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
