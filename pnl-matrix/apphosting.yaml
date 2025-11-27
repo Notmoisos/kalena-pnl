@@ -39,6 +39,5 @@ env:
     value: kalenapnl
   - variable: BQ_TABLE
     value: kalenapnl.kalena.etl_notas_view
-  
 
 
