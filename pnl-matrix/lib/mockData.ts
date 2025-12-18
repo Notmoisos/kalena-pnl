@@ -1,4 +1,4 @@
- ——— Sample Despesa ———
+//  ——— Sample Despesa ———
  export const despesa = [
    {
      dev_id: 839,
