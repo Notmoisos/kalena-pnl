@@ -36,7 +36,12 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
       SAFE_CAST(parsed_cofins_value        AS FLOAT64) AS cofins,
       SAFE_CAST(parsed_iss_value           AS FLOAT64) AS iss,
       SAFE_CAST(parsed_ir_value            AS FLOAT64) AS ir,
-      SAFE_CAST(parsed_fcp_value           AS FLOAT64) AS fcp,
+      SAFE_CAST(
+      REPLACE(
+        REPLACE(CAST(parsed_fcp_value AS STRING), '.', ''),
+        ',', '.'
+      ) AS FLOAT64
+    ) AS fcp,
       SAFE_CAST(parsed_icm_dest_value      AS FLOAT64) AS icms_dest,
       SAFE_CAST(parsed_icm_remet_value     AS FLOAT64) AS icms_remet,
       SAFE_CAST(parsed_icms_value          AS FLOAT64) AS icms,
@@ -55,7 +60,12 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
       SAFE_CAST(parsed_cofins_value AS FLOAT64),
       SAFE_CAST(parsed_iss_value AS FLOAT64),
       SAFE_CAST(parsed_ir_value AS FLOAT64),
-      SAFE_CAST(parsed_fcp_value AS FLOAT64),
+      SAFE_CAST(
+      REPLACE(
+        REPLACE(CAST(parsed_fcp_value AS STRING), '.', ''),
+        ',', '.'
+      ) AS FLOAT64
+    ) AS fcp,
       SAFE_CAST(parsed_icm_dest_value AS FLOAT64),
       SAFE_CAST(parsed_icm_remet_value AS FLOAT64),
       SAFE_CAST(parsed_icms_value AS FLOAT64),
@@ -74,7 +84,10 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
       -SAFE_CAST(parsed_cofins_value AS FLOAT64),
       -SAFE_CAST(parsed_iss_value AS FLOAT64),
       -SAFE_CAST(parsed_ir_value AS FLOAT64),
-      -SAFE_CAST(parsed_fcp_value AS FLOAT64),
+      -SAFE_CAST(
+      REPLACE(REPLACE(CAST(parsed_fcp_value AS STRING), '.', ''), ',', '.')
+      AS FLOAT64
+    ) AS fcp,
       -SAFE_CAST(parsed_icm_dest_value AS FLOAT64),
       -SAFE_CAST(parsed_icm_remet_value AS FLOAT64),
       -SAFE_CAST(parsed_icms_value AS FLOAT64),
@@ -85,19 +98,30 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
       AND cancelada='Não'
   )
 
-  SELECT FORMAT_DATE('%Y-%m', period) AS Periodo, tax_name, scenario, SUM(tax_val) AS valor
+  SELECT
+    FORMAT_DATE('%Y-%m', period) AS Periodo,
+    tax_name,
+    scenario,
+    SUM(COALESCE(tax_val, 0)) AS valor
   FROM union_all,
     UNNEST([
-      STRUCT('PIS'    AS tax_name, pis                              AS tax_val),
-      STRUCT('Cofins' AS tax_name, cofins                           AS tax_val),
-      STRUCT('ISS'    AS tax_name, iss                              AS tax_val),
-      STRUCT('IR'     AS tax_name, ir                               AS tax_val),
-      STRUCT('FCP'    AS tax_name, fcp                              AS tax_val),
-      STRUCT('ICMS'   AS tax_name, icms_dest + icms_remet + icms    AS tax_val),
-      STRUCT('IPI'    AS tax_name, ipi                              AS tax_val)
+      STRUCT('PIS'    AS tax_name, COALESCE(pis, 0) AS tax_val),
+      STRUCT('Cofins' AS tax_name, COALESCE(cofins, 0) AS tax_val),
+      STRUCT('ISS'    AS tax_name, COALESCE(iss, 0) AS tax_val),
+      STRUCT('IR'     AS tax_name, COALESCE(ir, 0) AS tax_val),
+
+      STRUCT('FCP'    AS tax_name, COALESCE(icms_dest, 0) AS tax_val),
+
+      STRUCT(
+        'ICMS' AS tax_name,
+        COALESCE(icms_dest, 0) + COALESCE(icms_remet, 0) + COALESCE(icms, 0)
+        AS tax_val
+      ),
+      STRUCT('IPI' AS tax_name, COALESCE(ipi, 0) AS tax_val)
     ])
   GROUP BY Periodo, tax_name, scenario
-  ORDER BY Periodo;`
+  ORDER BY Periodo;
+`
 
   const [rows] = await getBigQuery().query({ query: sql, params: { year } })
   return rows as RawTax[]
@@ -198,4 +222,4 @@ export async function fetchTaxDetails(ym: string, taxName: string, scenario: str
     console.error('Error fetching tax details from BigQuery:', error);
     return [];
   }
-} 
+}

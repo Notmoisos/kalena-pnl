@@ -25,13 +25,20 @@ export type PnLNode = {
 };
 
 // Utility: init months with 0
-export const emptyYear = (year: number) =>
-  Object.fromEntries(
+ export const emptyYear = (year: number) =>
+   Object.fromEntries(
     Array.from({ length: 12 }, (_, i) => [
       `${year}-${String(i + 1).padStart(2, '0')}` as Month,
       0
     ])
   ) as Record<Month, number>;
+
+  function normMonth(x: unknown): Month {
+    const s = String(x ??'').trim();
+    const m = s.match(/^(\d{4})-(\d{1,2})$/);
+  if (!m) return s as Month;
+  return `${m[1]}-${m[2].padStart(2, '0')}` as Month;
+  }
 
 /** Build a minimal P&L tree for the selected year from mock data */
 export function buildMockPnl(year: number): PnLNode[] {
@@ -73,68 +80,61 @@ export function buildMockPnl(year: number): PnLNode[] {
   ];
 }
 
-function buildTaxTree(raw: RawTax[], rootId: 'tax3' | 'tax4', rootLabel: string): PnLNode[] {
-  const rootYear = parseInt(raw[0]?.Periodo.slice(0, 4) ?? '2025')
-  const months = Object.keys(emptyYear(rootYear)) as Month[]
-  const root: PnLNode = { id: rootId, label: rootLabel, sign: '-', values: emptyYear(rootYear) }
-  const map: Record<string, PnLNode> = {}
+function buildTaxTree(
+  raw: RawTax[],
+  year: number,
+  rootId: 'tax3' | 'tax4',
+  rootLabel: string
+): PnLNode[] {
+  const root: PnLNode = { id: rootId, label: rootLabel, sign: '-', values: emptyYear(year) };
+  const map: Record<string, PnLNode> = {};
 
   for (const r of raw) {
-    const m = r.Periodo as Month;
-    // collapse all IPI scenarios into a single node 'taxIPI'
-    const childId = r.tax_name === 'IPI'
-      ? 'taxIPI'
-      : `${rootId}_${r.tax_name}_${r.scenario}`;
+    const m = normMonth(r.Periodo);
+    if (!m.startsWith(String(year))) continue;
 
-    if (!map[childId]) {
-      // --- START OF FIX ---
-      // Determine the initial sign based on the scenario type
-      let initialSign: '+' | '-' = '+'; // Default to positive for Venda, Bonificacao etc.
-      if (r.scenario === 'Devolucao') {
-        initialSign = '-'; // Returns/Devolucao typically imply a negative financial impact
-      }
-      // --- END OF FIX ---
+    const taxName = String(r.tax_name ?? '').trim();
+    const scenario = String(r.scenario ?? '').trim();
+    const v = Number(r.valor) || 0;
 
-      map[childId] = r.tax_name === 'IPI'
-        ? {
-            id: 'taxIPI',
-            parentId: rootId,
-            label: 'IPI',
-            sign: '-', // Assuming IPI is always a deduction/cost, as per your original code
-            values: emptyYear(rootYear)
-          }
-        : {
-            id: childId,
-            parentId: rootId,
-            label: `${r.tax_name} ${r.scenario === 'Venda' ? '' : r.scenario}`.trim(),
-            // Use the semantically determined sign here
-            sign: initialSign,
-            values: emptyYear(rootYear)
-          };
+    const id = taxName === 'IPI' ? 'taxIPI' : `${rootId}_${taxName}_${scenario}`;
+
+    let node = map[id];
+    if (!node) {
+      node = map[id] = {
+        id,
+        parentId: rootId,
+        label: taxName === 'IPI' ? 'IPI' : `${taxName} – ${scenario}`,
+        sign: '-',
+        values: emptyYear(year),
+      };
     }
-    // JavaScript correctly coerces 'null' to 0 in arithmetic operations, so no change needed here
-    map[childId].values[m] += r.valor;
-    // only non-IPI taxes accumulate in root
-    if (r.tax_name !== 'IPI') root.values[m] += r.valor;
+
+    node.values[m] += v;
+    root.values[m] += v;
   }
-  // ensure IPI child appears immediately under root
+
   const allChildren = Object.values(map);
-  const ipiChild = allChildren.filter(n => n.id === 'taxIPI');
-  const otherChildren = allChildren.filter(n => n.id !== 'taxIPI');
-  return [root, ...ipiChild, ...otherChildren];
+
+  // garante IPI sempre no topo (se existir)
+  return [
+    root,
+    ...allChildren.filter(n => n.id === 'taxIPI'),
+    ...allChildren.filter(n => n.id !== 'taxIPI'),
+  ];
 }
 
 export async function pivotRevenueTaxes(year: number): Promise<PnLNode[]> {
-  const nodes = buildTaxTree(await fetchRevenueTaxRows(year), 'tax3', 'Impostos sobre receita');
-  // Merge hardcoded Impostos sobre receita for January 2025
-  if (year === 2025) mergeTaxExtras(nodes, extraTax3Rows);
+  const raw = await fetchRevenueTaxRows(year);
+  const nodes = buildTaxTree(raw, year, 'tax3', 'Impostos sobre receita');
+  if (year === 2025) mergeTaxExtras(nodes, extraTax3Rows, year);
   return nodes;
 }
 
 export async function pivotStTaxes(year: number): Promise<PnLNode[]> {
-  const nodes = buildTaxTree(await fetchStTaxRows(year), 'tax4', 'Impostos ST');
-  // Merge hardcoded Impostos ST for January 2025
-  if (year === 2025) mergeTaxExtras(nodes, extraTax4Rows);
+  const raw = await fetchStTaxRows(year);
+  const nodes = buildTaxTree(raw, year, 'tax4', 'Impostos ST');
+  if (year === 2025) mergeTaxExtras(nodes, extraTax4Rows, year);
   return nodes;
 }
 
@@ -772,16 +772,27 @@ export async function buildPnl(year: number): Promise<PnLNode[]> {
 /**
  * Merge extra tax rows into a tax subtree and update root total for January 2025.
  */
-function mergeTaxExtras(nodes: PnLNode[], extras: ExtraTaxRow[]) {
-  const root = nodes.find(n => !n.parentId)!;
-  const monthKey = '2025-01' as Month;
+function mergeTaxExtras(nodes: PnLNode[], extras: ExtraTaxRow[], year: number) {
+  const root = nodes.find(n => n.id === 'tax3' || n.id === 'tax4') ?? nodes.find(n => !n.parentId)!;
+  const monthKey = `${year}-01` as Month;
+
   for (const x of extras) {
     let child = nodes.find(n => n.id === x.id);
+
     if (!child) {
-      child = { id: x.id, parentId: root.id, label: x.label, sign: x.sign, values: emptyYear(2025) };
+      child = {
+        id: x.id,
+        parentId: root.id,
+        label: x.label,
+        sign: x.sign,
+        values: emptyYear(year),
+      };
       nodes.push(child);
     }
-    child.values[monthKey] += x.valor;
-    root.values[monthKey] += x.valor;
+
+    if ((child.values[monthKey] ?? 0) === 0) {
+      child.values[monthKey] += x.valor;
+      root.values[monthKey]  += x.valor;
+    }
   }
-} 
+}
