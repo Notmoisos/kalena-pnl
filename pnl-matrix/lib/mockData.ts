@@ -24,7 +24,7 @@
    }
  ];
 
- ——— Sample NFE ———
+ //——— Sample NFE ———
  export const nfe = [
    {
      dev_id: '13',
