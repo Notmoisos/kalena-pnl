@@ -34,19 +34,34 @@ export default function PnlPage({ searchParams: initialSearchParams }: { searchP
   const [isExporting, setIsExporting] = useState(false);
   const tableRef = useRef<PnLTableHandle>(null);
 
-  useEffect(() => {
-    console.log(`PnlPage: Effect triggered for currentYear: ${currentYear}`);
-    fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/pnl?year=${currentYear}`, { cache: 'no-store' })
-      .then((r) => r.json())
-      .then(fetchedData => {
-        console.log(`PnlPage: Data received for year: ${currentYear}`);
-        setData(fetchedData);
-      })
-      .catch(error => {
-        console.error(`PnlPage: Error fetching data for year ${currentYear}:`, error);
-        setData([]);
-      });
-  }, [currentYear]);
+    useEffect(() => {
+      const ctrl = new AbortController();
+
+      (async () => {
+        try {
+
+          const res = await fetch(`/api/pnl?year=${currentYear}`, {
+            signal: ctrl.signal,
+            cache: "no-store",
+          });
+
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+          const json = await res.json();
+
+          const rows = json?.data ?? json ?? [];
+
+          setData(rows);
+        } catch (e: any) {
+          if (e?.name === "AbortError") return; // normal no dev
+          setData([]); // opcional
+        }
+      })();
+
+      return () => {
+        ctrl.abort();
+      };
+    }, [currentYear]);
 
   const openDetailsModal = (ctx: {
     ym?: string;
