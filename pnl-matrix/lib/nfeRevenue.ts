@@ -9,8 +9,10 @@ export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
     SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period,'ReceitaBruta' AS kind,
            SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64) AS amount
     FROM \`${process.env.BQ_TABLE}\`
-    WHERE tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não'
-      AND (nome_cenario='Venda' OR nome_cenario='Inativo')
+    WHERE tipo_operacao='Saída'
+    AND finalidade='Normal/Venda'
+    AND cancelada='Não'
+
     UNION ALL
     SELECT DATE_TRUNC(DATE(data_emissao), MONTH),'Devolucao',
            SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64)
