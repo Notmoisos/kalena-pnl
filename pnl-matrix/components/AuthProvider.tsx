@@ -5,6 +5,7 @@ import { auth } from '@/lib/firebase'
 import LoginButton from './LoginButton'
 
 const ALLOWED_USERS = [
+  'alan@kalenafoods.com.br',
   'financeiro@kalenafoods.com.br',
   'danny@kalenafoods.com.br',
   'eilon@kalenafoods.com.br',
