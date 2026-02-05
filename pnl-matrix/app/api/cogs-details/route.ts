@@ -4,6 +4,7 @@ import { fetchFamilyDetails, FamilyKind } from '@/lib/nfeFamily';
 import { fetchProductDetails } from '@/lib/nfeProduct';
 import type { FamilyApiRow } from '@/lib/nfeFamily';
 import type { ProductApiRow } from '@/lib/nfeProduct';
+import { normalizeProductLabel } from '@/lib/normalizeProductLabel';
 
 /** Hardcoded CPV family data for January 2025 */
 function getExtraCpvFamilyRows2025(): FamilyApiRow[] {
@@ -177,25 +178,40 @@ export async function GET(req: Request) {
       // Merge hardcoded CPV product data for January 2025
       if (year === '2025' && kind === 'CPV') {
         for (const e of getExtraCpvProductRows2025()) {
-          const idx = rows.findIndex(r => r.produto === e.produto && r.ym === e.ym);
+          const idx = rows.findIndex(r =>
+          normalizeProductLabel(r.produto) === normalizeProductLabel(e.produto) &&
+          r.ym === e.ym
+        );
+
           if (idx >= 0) rows[idx].valor += e.valor;
-          else rows.push(e);
+          else rows.push({ ...e, produto: normalizeProductLabel(e.produto) });
+
         }
       }
       // Merge hardcoded CPV_Boni product data for January 2025
       if (year === '2025' && kind === 'CPV_Boni') {
         for (const e of getExtraCpvBoniProductRows2025()) {
-          const idx = rows.findIndex(r => r.produto === e.produto && r.ym === e.ym);
+          const idx = rows.findIndex(r =>
+          normalizeProductLabel(r.produto) === normalizeProductLabel(e.produto) &&
+          r.ym === e.ym
+        );
+
           if (idx >= 0) rows[idx].valor += e.valor;
-          else rows.push(e);
+          else rows.push({ ...e, produto: normalizeProductLabel(e.produto) });
+
         }
       }
       // Merge hardcoded CPV_Devol product data for January 2025
       if (year === '2025' && kind === 'CPV_Devol') {
         for (const e of getExtraCpvDevolProductRows2025()) {
-          const idx = rows.findIndex(r => r.produto === e.produto && r.ym === e.ym);
+          const idx = rows.findIndex(r =>
+          normalizeProductLabel(r.produto) === normalizeProductLabel(e.produto) &&
+          r.ym === e.ym
+        );
+
           if (idx >= 0) rows[idx].valor += e.valor;
-          else rows.push(e);
+          else rows.push({ ...e, produto: normalizeProductLabel(e.produto) });
+
         }
       }
       return NextResponse.json(rows);
