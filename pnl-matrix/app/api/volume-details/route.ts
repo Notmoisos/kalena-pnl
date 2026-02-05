@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { fetchVolumeFamilyDetails, fetchVolumeProductDetails } from '@/lib/nfeVolume'
 import type { FamilyApiRow } from '@/lib/nfeFamily'
 import type { ProductApiRow } from '@/lib/nfeProduct'
+import { normalizeProductLabel } from '@/lib/normalizeProductLabel'
 
 /** Hardcoded volume family data for ReceitaBruta in January 2025 */
 function getExtraVolumeFamilyRows2025(): FamilyApiRow[] {
@@ -105,9 +106,12 @@ export async function GET(req: Request) {
     const rows = await fetchVolumeProductDetails(year, kind)
     if (year === '2025' && kind === 'ReceitaBruta') {
       for (const e of getExtraVolumeProductRows2025()) {
-        const idx = rows.findIndex(r => r.produto === e.produto && r.ym === e.ym)
+        const idx = rows.findIndex(r =>
+        normalizeProductLabel(r.produto) === normalizeProductLabel(e.produto) &&
+        r.ym === e.ym
+      );
         if (idx >= 0) rows[idx].valor += e.valor
-        else rows.push(e)
+        else rows.push({ ...e, produto: normalizeProductLabel(e.produto) });
       }
     }
     return NextResponse.json(rows)

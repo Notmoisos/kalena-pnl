@@ -39,8 +39,14 @@ export async function fetchCogsDetails(ym:string,kind:CogsKind):Promise<CogsDeta
                kind==='CPV_Boni'?`tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND nome_cenario='Bonificação'`:
                kind==='Perdas'?`tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND nome_cenario='Baixa de estoque - Perda'`:
                /* devol */     `finalidade='Devolução' AND cancelada='Não'`;
-  const sql=`SELECT parsed_x_prod_value produto,COUNT(*) n_nfes,SUM(parsed_unit_cost*parsed_quantity_units) valor_total
-             FROM \`${process.env.BQ_TABLE}\` WHERE ${filter} AND FORMAT_DATE('%Y-%m',DATE(data_emissao))=@ym
-             GROUP BY produto ORDER BY valor_total DESC LIMIT 300`;
+  const sql=`SELECT
+              COALESCE(produto_norm, parsed_x_prod_value) AS produto,
+              COUNT(*) AS n_nfes,
+              SUM(parsed_unit_cost*parsed_quantity_units) AS valor_total
+              FROM \`${process.env.BQ_TABLE}\`
+              WHERE ${filter}
+              AND FORMAT_DATE('%Y-%m', DATE(data_emissao))=@ym
+              GROUP BY produto
+              ORDER BY valor_total DESC LIMIT 300`;
   const [rows]=await bq.query({query:sql,params:{ym}});return rows as CogsDetail[];
 } 

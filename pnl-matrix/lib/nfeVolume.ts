@@ -54,13 +54,13 @@ export async function fetchVolumeProductDetails(
   }
   const sql = `
     SELECT
-      FORMAT('%s (%s)', parsed_x_prod_value,
+      FORMAT('%s (%s)',
+        COALESCE(produto_norm, parsed_x_prod_value),
         CASE WHEN parsed_type_unit IN ('CAIXA','CX') THEN 'CX' ELSE parsed_type_unit END
       ) AS produto,
       FORMAT_DATE('%Y-%m', DATE(data_emissao)) AS ym,
       SAFE_CAST(SUM(parsed_quantity_units) AS FLOAT64) AS valor
-    FROM 
-      ${process.env.BQ_TABLE}
+    FROM ${process.env.BQ_TABLE}
     WHERE ${filter}
       AND FORMAT_DATE('%Y', DATE(data_emissao)) = @year
     GROUP BY produto, ym

@@ -131,7 +131,6 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
 export async function fetchStTaxRows(year: number): Promise<RawTax[]> {
   const sql = `
   WITH union_all AS (
-    -- Venda & Inativo
     SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period, 'Venda' AS scenario,
       SAFE_CAST(parsed_icmsst_value AS FLOAT64) AS icms_st,
       SAFE_CAST(parsed_fcpst_value  AS FLOAT64) AS fcp_st
@@ -143,8 +142,7 @@ export async function fetchStTaxRows(year: number): Promise<RawTax[]> {
       AND (nome_cenario='Venda' OR nome_cenario='Inativo')
 
     UNION ALL
-    -- Bonificação
-    SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period, 'Bonificacao' AS scenario,
+    SELECT DATE_TRUNC(DATE(data_emissao), MONTH), 'Bonificacao',
       SAFE_CAST(parsed_icmsst_value AS FLOAT64),
       SAFE_CAST(parsed_fcpst_value  AS FLOAT64)
     FROM \`${process.env.BQ_TABLE}\`
@@ -155,8 +153,7 @@ export async function fetchStTaxRows(year: number): Promise<RawTax[]> {
       AND nome_cenario='Bonificação'
 
     UNION ALL
-    -- Devolução (sign flip)
-    SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period, 'Devolucao' AS scenario,
+    SELECT DATE_TRUNC(DATE(data_emissao), MONTH), 'Devolucao',
       -SAFE_CAST(parsed_icmsst_value AS FLOAT64),
       -SAFE_CAST(parsed_fcpst_value  AS FLOAT64)
     FROM \`${process.env.BQ_TABLE}\`
@@ -165,11 +162,15 @@ export async function fetchStTaxRows(year: number): Promise<RawTax[]> {
       AND cancelada='Não'
   )
 
-  SELECT FORMAT_DATE('%Y-%m', period) AS Periodo, tax_name, scenario, SUM(tax_val) AS valor
+  SELECT
+    FORMAT_DATE('%Y-%m', period) AS Periodo,
+    tax_name,
+    scenario,
+    SUM(COALESCE(tax_val, 0)) AS valor
   FROM union_all,
     UNNEST([
-      STRUCT('ICMS_ST' AS tax_name, icms_st AS tax_val),
-      STRUCT('FCP_ST'  AS tax_name, fcp_st  AS tax_val)
+      STRUCT('ICMS_ST' AS tax_name, COALESCE(icms_st, 0) AS tax_val),
+      STRUCT('FCP_ST'  AS tax_name, COALESCE(fcp_st, 0)  AS tax_val)
     ])
   GROUP BY Periodo, tax_name, scenario
   ORDER BY Periodo;`
@@ -199,7 +200,7 @@ export async function fetchTaxDetails(ym: string, taxName: string, scenario: str
   }
   const sql = `
     SELECT
-      parsed_x_prod_value AS produto,
+      COALESCE(produto_norm, parsed_x_prod_value) AS produto,
       COUNT(*) AS n_nfes,
       SUM(SAFE_CAST(${taxColumn} AS FLOAT64) * ${signMultiplier}) AS valor_total
     FROM
@@ -209,10 +210,8 @@ export async function fetchTaxDetails(ym: string, taxName: string, scenario: str
       AND FORMAT_DATE('%Y-%m', DATE(data_emissao)) = @ym
       AND SAFE_CAST(${taxColumn} AS FLOAT64) IS NOT NULL
       AND SAFE_CAST(${taxColumn} AS FLOAT64) != 0
-    GROUP BY
-      produto
-    ORDER BY
-      valor_total DESC
+    GROUP BY produto
+    ORDER BY valor_total DESC
     LIMIT 300;
   `;
   try {
