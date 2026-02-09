@@ -9,7 +9,6 @@ export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
     SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period,'ReceitaBruta' AS kind,
            SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64) AS amount
     FROM \`${process.env.BQ_TABLE}\`
-    WHERE tipo_operacao='Saída'
     AND finalidade='Normal/Venda'
     AND cancelada='Não'
     AND (nome_cenario='Venda' OR nome_cenario='Inativo')
@@ -58,7 +57,7 @@ export async function fetchNfeDetails(ym:string, kind:RevKind):Promise<NfeDetail
     SUM(SAFE_CAST(${valueColumn} AS FLOAT64)) AS valor_total
     FROM \`${process.env.BQ_TABLE}\`
     WHERE ${filter} AND FORMAT_DATE('%Y-%m', DATE(data_emissao)) = @ym
-    GROUP BY produto_norm
+    GROUP BY produto
     ORDER BY valor_total DESC
     LIMIT 300`;
   const [rows] = await bq.query({ query: sql, params: { ym } });
