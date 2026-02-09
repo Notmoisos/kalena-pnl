@@ -110,7 +110,7 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
       STRUCT('ISS'    AS tax_name, COALESCE(iss, 0) AS tax_val),
       STRUCT('IR'     AS tax_name, COALESCE(ir, 0) AS tax_val),
 
-      STRUCT('FCP'    AS tax_name, COALESCE(icms_dest, 0) AS tax_val),
+      STRUCT('FCP' AS tax_name, COALESCE(fcp, 0) AS tax_val),
 
       STRUCT(
         'ICMS' AS tax_name,
