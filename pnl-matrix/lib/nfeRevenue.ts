@@ -9,9 +9,10 @@ export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
     SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period,'ReceitaBruta' AS kind,
            SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64) AS amount
     FROM \`${process.env.BQ_TABLE}\`
-    AND finalidade='Normal/Venda'
-    AND cancelada='Não'
-    AND (nome_cenario='Venda' OR nome_cenario='Inativo')
+      WHERE tipo_operacao='Saída'
+      AND finalidade='Normal/Venda'
+      AND cancelada='Não'
+      AND (nome_cenario='Venda' OR nome_cenario='Inativo')
 
     UNION ALL
     SELECT DATE_TRUNC(DATE(data_emissao), MONTH),'Devolucao',
@@ -33,7 +34,7 @@ export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
 export async function fetchNfeDetails(ym:string, kind:RevKind):Promise<NfeDetail[]> {
   let filter: string;
   let valueColumn: string;
-  let groupByColumn: string = 'parsed_x_prod_value';
+  let groupByColumn: string = 'produto_norm';
   switch (kind) {
     case 'ReceitaBruta':
       filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND (nome_cenario='Venda' OR nome_cenario='Inativo')`;
