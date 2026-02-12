@@ -775,13 +775,29 @@ export async function buildPnl(year: number): Promise<PnLNode[]> {
 function mergeTaxExtras(nodes: PnLNode[], extras: ExtraTaxRow[]) {
   const root = nodes.find(n => !n.parentId)!;
   const monthKey = '2025-01' as Month;
+  const EPS = 0.000001;
+
   for (const x of extras) {
     let child = nodes.find(n => n.id === x.id);
+
+    // cria nó se não existir
     if (!child) {
-      child = { id: x.id, parentId: root.id, label: x.label, sign: x.sign, values: emptyYear(2025) };
+      child = {
+        id: x.id,
+        parentId: root.id,
+        label: x.label,
+        sign: x.sign,
+        values: emptyYear(2025),
+      };
       nodes.push(child);
     }
-    child.values[monthKey] += x.valor;
-    root.values[monthKey] += x.valor;
+
+    const current = child.values[monthKey] ?? 0;
+
+    // ✅ só aplica extra se BQ não trouxe nada (ou veio ~0)
+    if (Math.abs(current) < EPS) {
+      child.values[monthKey] = current + x.valor;
+      root.values[monthKey] += x.valor;
+    }
   }
-} 
+}

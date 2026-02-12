@@ -54,7 +54,7 @@ export async function fetchVolumeProductDetails(
   }
   const sql = `
     SELECT
-      FORMAT('%s (%s)',
+      FORMAT('%s (%s)', parsed_x_prod_value,
         COALESCE(produto_norm, parsed_x_prod_value),
         CASE WHEN parsed_type_unit IN ('CAIXA','CX') THEN 'CX' ELSE parsed_type_unit END
       ) AS produto,

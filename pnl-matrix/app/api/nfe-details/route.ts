@@ -114,13 +114,13 @@ export async function GET(req: Request) {
       // Hardcode additional data for 2025-01 ReceitaBruta
       if (year === '2025' && kind === 'ReceitaBruta') {
         for (const e of getExtraProductRows2025()) {
-          const idx = rows.findIndex(r =>
-          normalizeProductLabel(r.produto) === normalizeProductLabel(e.produto) &&
-          r.ym === e.ym
-        );
+          const idx = rows.findIndex(r => r.produto === e.produto && r.ym === e.ym);
+
+
+
 
           if (idx >= 0) rows[idx].valor += e.valor;
-          else rows.push({ ...e, produto: normalizeProductLabel(e.produto) });
+          else rows.push(e);
         }
       }
       return NextResponse.json(rows);
