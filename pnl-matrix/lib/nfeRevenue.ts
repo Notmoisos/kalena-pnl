@@ -34,7 +34,7 @@ export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
 export async function fetchNfeDetails(ym:string, kind:RevKind):Promise<NfeDetail[]> {
   let filter: string;
   let valueColumn: string;
-  let groupByColumn: string = 'produto_norm';
+  let groupByColumn: string = 'parsed_x_prod_value';
   switch (kind) {
     case 'ReceitaBruta':
       filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND (nome_cenario='Venda' OR nome_cenario='Inativo')`;

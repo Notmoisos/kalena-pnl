@@ -56,7 +56,7 @@ export async function fetchProductDetails(
 
   const sql = `
     SELECT
-      COALESCE(produto_norm, parsed_x_prod_value) AS produto,
+      parsed_x_prod_value AS produto,
       FORMAT_DATE('%Y-%m', DATE(data_emissao)) AS ym,
       SAFE_CAST(SUM(${selector}) AS FLOAT64) AS valor
     FROM \`${process.env.BQ_TABLE}\`

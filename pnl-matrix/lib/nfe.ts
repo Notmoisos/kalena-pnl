@@ -19,10 +19,9 @@ const taxColumnMap: Record<string, string> = {
   'Cofins': 'parsed_cofins_value',
   'ISS': 'parsed_iss_value',
   'IR': 'parsed_ir_value',
-  'FCP': 'parsed_fcp_value',
+  'FCP': 'parsed_fcp_calc_value',
   'ICMS': 'parsed_icms_value',
   'ICMS_ST': 'parsed_icmsst_value',
-  'FCP_ST': 'parsed_fcpst_value',
   'IPI': 'parsed_ipi_value',
 };
 
@@ -36,12 +35,7 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
       SAFE_CAST(parsed_cofins_value        AS FLOAT64) AS cofins,
       SAFE_CAST(parsed_iss_value           AS FLOAT64) AS iss,
       SAFE_CAST(parsed_ir_value            AS FLOAT64) AS ir,
-      SAFE_CAST(
-      REPLACE(
-        REPLACE(CAST(parsed_fcp_value AS STRING), '.', ''),
-        ',', '.'
-      ) AS FLOAT64
-    ) AS fcp,
+      SAFE_CAST(parsed_fcp_calc_value AS FLOAT64) AS fcp,
       SAFE_CAST(parsed_icm_dest_value      AS FLOAT64) AS icms_dest,
       SAFE_CAST(parsed_icm_remet_value     AS FLOAT64) AS icms_remet,
       SAFE_CAST(parsed_icms_value          AS FLOAT64) AS icms,
@@ -60,12 +54,13 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
       SAFE_CAST(parsed_cofins_value AS FLOAT64),
       SAFE_CAST(parsed_iss_value AS FLOAT64),
       SAFE_CAST(parsed_ir_value AS FLOAT64),
-      SAFE_CAST(
-      REPLACE(
-        REPLACE(CAST(parsed_fcp_value AS STRING), '.', ''),
-        ',', '.'
-      ) AS FLOAT64
-    ) AS fcp,
+      COALESCE(
+        SAFE_CAST(parsed_fcp_calc_value AS FLOAT64),
+        SAFE_CAST(REPLACE(REPLACE(CAST(parsed_fcp_value AS STRING), '.', ''), ',', '.') AS FLOAT64),
+        0
+      ) AS fcp,
+
+
       SAFE_CAST(parsed_icm_dest_value AS FLOAT64),
       SAFE_CAST(parsed_icm_remet_value AS FLOAT64),
       SAFE_CAST(parsed_icms_value AS FLOAT64),
@@ -84,10 +79,12 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
       -SAFE_CAST(parsed_cofins_value AS FLOAT64),
       -SAFE_CAST(parsed_iss_value AS FLOAT64),
       -SAFE_CAST(parsed_ir_value AS FLOAT64),
-      -SAFE_CAST(
-      REPLACE(REPLACE(CAST(parsed_fcp_value AS STRING), '.', ''), ',', '.')
-      AS FLOAT64
-    ) AS fcp,
+      -COALESCE(
+        SAFE_CAST(parsed_fcp_calc_value AS FLOAT64),
+        SAFE_CAST(REPLACE(REPLACE(CAST(parsed_fcp_value AS STRING), '.', ''), ',', '.') AS FLOAT64),
+        0
+      ) AS fcp,
+
       -SAFE_CAST(parsed_icm_dest_value AS FLOAT64),
       -SAFE_CAST(parsed_icm_remet_value AS FLOAT64),
       -SAFE_CAST(parsed_icms_value AS FLOAT64),
@@ -133,7 +130,11 @@ export async function fetchStTaxRows(year: number): Promise<RawTax[]> {
   WITH union_all AS (
     SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period, 'Venda' AS scenario,
       SAFE_CAST(parsed_icmsst_value AS FLOAT64) AS icms_st,
-      SAFE_CAST(parsed_fcpst_value  AS FLOAT64) AS fcp_st
+      COALESCE(
+  SAFE_CAST(parsed_fcpst_value AS FLOAT64),
+  0
+) AS fcp_st
+
     FROM \`${process.env.BQ_TABLE}\`
     WHERE EXTRACT(YEAR FROM DATE(data_emissao)) = @year
       AND tipo_operacao='Saída'
@@ -142,9 +143,13 @@ export async function fetchStTaxRows(year: number): Promise<RawTax[]> {
       AND (nome_cenario='Venda' OR nome_cenario='Inativo')
 
     UNION ALL
-    SELECT DATE_TRUNC(DATE(data_emissao), MONTH), 'Bonificacao',
+     SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period, 'Bonificacao' AS scenario,
       SAFE_CAST(parsed_icmsst_value AS FLOAT64),
-      SAFE_CAST(parsed_fcpst_value  AS FLOAT64)
+      COALESCE(
+  SAFE_CAST(parsed_fcpst_value AS FLOAT64),
+  0
+) AS fcp_st
+
     FROM \`${process.env.BQ_TABLE}\`
     WHERE EXTRACT(YEAR FROM DATE(data_emissao)) = @year
       AND tipo_operacao='Saída'
@@ -153,24 +158,29 @@ export async function fetchStTaxRows(year: number): Promise<RawTax[]> {
       AND nome_cenario='Bonificação'
 
     UNION ALL
-    SELECT DATE_TRUNC(DATE(data_emissao), MONTH), 'Devolucao',
+    SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period, 'Devolucao' AS scenario,
       -SAFE_CAST(parsed_icmsst_value AS FLOAT64),
-      -SAFE_CAST(parsed_fcpst_value  AS FLOAT64)
+      COALESCE(
+      SAFE_CAST(parsed_fcpst_value AS FLOAT64),
+      0
+    ) AS fcp_st
+
     FROM \`${process.env.BQ_TABLE}\`
     WHERE EXTRACT(YEAR FROM DATE(data_emissao)) = @year
       AND finalidade='Devolução'
       AND cancelada='Não'
   )
 
-  SELECT
-    FORMAT_DATE('%Y-%m', period) AS Periodo,
-    tax_name,
-    scenario,
-    SUM(COALESCE(tax_val, 0)) AS valor
+SELECT FORMAT_DATE('%Y-%m', period) AS Periodo, tax_name, scenario, SUM(COALESCE(tax_val, 0)) AS valor
+
+
+
+
+
   FROM union_all,
     UNNEST([
-      STRUCT('ICMS_ST' AS tax_name, COALESCE(icms_st, 0) AS tax_val),
-      STRUCT('FCP_ST'  AS tax_name, COALESCE(fcp_st, 0)  AS tax_val)
+      STRUCT('ICMS_ST' AS tax_name, icms_st AS tax_val),
+      STRUCT('FCP_ST'  AS tax_name, fcp_st  AS tax_val)
     ])
   GROUP BY Periodo, tax_name, scenario
   ORDER BY Periodo;`
@@ -200,7 +210,7 @@ export async function fetchTaxDetails(ym: string, taxName: string, scenario: str
   }
   const sql = `
     SELECT
-      COALESCE(produto_norm, parsed_x_prod_value) AS produto,
+      parsed_x_prod_value AS produto,
       COUNT(*) AS n_nfes,
       SUM(SAFE_CAST(${taxColumn} AS FLOAT64) * ${signMultiplier}) AS valor_total
     FROM
@@ -210,9 +220,10 @@ export async function fetchTaxDetails(ym: string, taxName: string, scenario: str
       AND FORMAT_DATE('%Y-%m', DATE(data_emissao)) = @ym
       AND SAFE_CAST(${taxColumn} AS FLOAT64) IS NOT NULL
       AND SAFE_CAST(${taxColumn} AS FLOAT64) != 0
-    GROUP BY produto
-    ORDER BY valor_total DESC
-    LIMIT 300;
+    GROUP BY
+      produto
+    ORDER BY
+      valor_total DESC
   `;
   try {
     const [rows] = await getBigQuery().query({ query: sql, params: { ym } });
