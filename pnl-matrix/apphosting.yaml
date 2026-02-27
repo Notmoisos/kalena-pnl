@@ -38,6 +38,9 @@ env:
   - variable: BQ_PROJECT_ID
     value: kalenapnl
   - variable: BQ_TABLE
-    value: kalenapnl.kalena.etl_notas_view
+    value: kalenapnl.kalena.etl_notas_unificada
+  - variable: BQ_TABLE_BLING=etl_notas_bling
+    value: kalenapnl.kalena.etl_notas_bling
+
 
 
