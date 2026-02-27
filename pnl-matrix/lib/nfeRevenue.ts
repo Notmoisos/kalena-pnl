@@ -34,7 +34,7 @@ export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
 export async function fetchNfeDetails(ym:string, kind:RevKind):Promise<NfeDetail[]> {
   let filter: string;
   let valueColumn: string;
-  let groupByColumn: string = 'parsed_x_prod_value';
+  let groupByColumn = "COALESCE( produto_norm, parsed_x_prod_value_norm, parsed_x_prod_value_raw, parsed_x_prod_value)"
   switch (kind) {
     case 'ReceitaBruta':
       filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND (nome_cenario='Venda' OR nome_cenario='Inativo')`;
@@ -59,8 +59,7 @@ export async function fetchNfeDetails(ym:string, kind:RevKind):Promise<NfeDetail
     FROM \`${process.env.BQ_TABLE}\`
     WHERE ${filter} AND FORMAT_DATE('%Y-%m', DATE(data_emissao)) = @ym
     GROUP BY produto
-    ORDER BY valor_total DESC
-    LIMIT 300`;
+    ORDER BY valor_total DESC`;
   const [rows] = await bq.query({ query: sql, params: { ym } });
   return rows as NfeDetail[];
 }
