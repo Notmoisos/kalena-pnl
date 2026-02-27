@@ -32,7 +32,6 @@ export async function fetchVolumeFamilyDetails(
       AND FORMAT_DATE('%Y', DATE(data_emissao)) = @year
     GROUP BY familia, ym
     ORDER BY ym, valor DESC
-    LIMIT 500
   `
   const [rows] = await bq.query({ query: sql, params: { year } })
   return rows as FamilyApiRow[]
@@ -52,10 +51,12 @@ export async function fetchVolumeProductDetails(
       filter = `finalidade='Devolução' AND cancelada='Não'`
       break
   }
+
   const sql = `
     SELECT
-      FORMAT('%s (%s)', parsed_x_prod_value,
-        COALESCE(produto_norm, parsed_x_prod_value),
+      FORMAT(
+        '%s (%s)',
+        COALESCE(produto_norm, parsed_x_prod_value_norm, parsed_x_prod_value_raw, parsed_x_prod_value),
         CASE WHEN parsed_type_unit IN ('CAIXA','CX') THEN 'CX' ELSE parsed_type_unit END
       ) AS produto,
       FORMAT_DATE('%Y-%m', DATE(data_emissao)) AS ym,
@@ -65,8 +66,7 @@ export async function fetchVolumeProductDetails(
       AND FORMAT_DATE('%Y', DATE(data_emissao)) = @year
     GROUP BY produto, ym
     ORDER BY ym, valor DESC
-    LIMIT 500
   `
   const [rows] = await bq.query({ query: sql, params: { year } })
   return rows as ProductApiRow[]
-} 
+}

@@ -210,7 +210,7 @@ export async function fetchTaxDetails(ym: string, taxName: string, scenario: str
   }
   const sql = `
     SELECT
-      parsed_x_prod_value AS produto,
+      COALESCE(produto_norm, parsed_x_prod_value) AS produto,
       COUNT(*) AS n_nfes,
       SUM(SAFE_CAST(${taxColumn} AS FLOAT64) * ${signMultiplier}) AS valor_total
     FROM

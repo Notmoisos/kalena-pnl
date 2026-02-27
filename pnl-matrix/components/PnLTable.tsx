@@ -471,7 +471,11 @@ const PnLTable = forwardRef<PnLTableHandle, {
                   setLoadingProdMap(p => ({ ...p, [cacheKey]: true }));
                   try {
                     const res = await fetch(`${endpoint}?year=${year}&kind=${apiKind}&breakdown=product`);
-                    const rows = await res.json() as ProductApiRow[];
+                    if (!res.ok) {
+                      const txt = await res.text().catch(() => '');
+                      throw new Error(`HTTP ${res.status} - ${txt.slice(0, 300)}`);
+                    }
+                    const rows = (await res.json()) as ProductApiRow[];
                     setProductData(p => ({ ...p, [cacheKey]: pivotProducts(rows, parent, months) }));
                     setDataVersion(v => v + 1);
                   } finally { setLoadingProdMap(p => ({ ...p, [cacheKey]: false })); }
