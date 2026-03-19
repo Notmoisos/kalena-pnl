@@ -24,6 +24,44 @@ const renderVal = (row: any, m: Month) => {
   return fmt(v);
 };
 
+const getYearTotal = (row: any, months: Month[]) => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  return months.reduce((acc, m) => {
+    const [yyyy, mm] = m.split('-');
+    const monthYear = Number(yyyy);
+    const monthNum = Number(mm);
+
+    const isOpenCurrentMonth =
+      monthYear === currentYear && monthNum === currentMonth;
+
+    const isFutureMonth =
+      monthYear > currentYear ||
+      (monthYear === currentYear && monthNum > currentMonth);
+
+    if (isOpenCurrentMonth || isFutureMonth) {
+      return acc;
+    }
+
+    return acc + (row.original.values?.[m] || 0);
+  }, 0);
+};
+
+const renderYearTotal = (row: any, months: Month[]) => {
+  const v = getYearTotal(row, months);
+
+  if (
+    row.original.kind === 'percentage' ||
+    row.original.kind === 'detailPercentage'
+  ) {
+    return `${v.toFixed(2)}%`;
+  }
+
+  return fmt(v);
+};
+
 // Extend PnLNode but override its kind to include 'breakdown', 'volume_parent', 'group', and 'financial_revenue_subgroup'
 type Node = Omit<PnLNode, 'kind' | 'meta'> & {
   kind?: 'breakdown' | 'intermediate' | 'percentage' | 'family' | 'loading' | 'detailPercentage' | 'volume_parent' | 'group' | 'financial_revenue_subgroup';
@@ -383,6 +421,16 @@ const PnLTable = forwardRef<PnLTableHandle, {
       meta: { numeric: true } as { numeric: boolean }
     }));
 
+    const totalCol: ColumnDef<Node, any> = {
+  id: 'year_total',
+  header: 'Consolidado',
+  cell: ({ row }: { row: any }) => (
+    <span className="font-semibold text-right whitespace-nowrap">
+      {renderYearTotal(row, months)}
+    </span>
+  ),
+};
+
     return [
       {
         id: 'expander',
@@ -510,9 +558,21 @@ const PnLTable = forwardRef<PnLTableHandle, {
           );
         }
       },
-      ...monthCols
+      ...monthCols,
+      totalCol,
     ];
-  }, [year, onCellClick, familyData, loadingMap, months]);
+    }, [
+    year,
+    onCellClick,
+    familyData,
+    productData,
+    loadingMap,
+    loadingProdMap,
+    loadingCpvFamilyPercent,
+    cpvFamilyPercentData,
+    months,
+    dataVersion,
+  ]);
 
   const [expanded, setExpanded] = React.useState<ExpandedState>({
     tax3: false,   // revenue taxes collapsed by default

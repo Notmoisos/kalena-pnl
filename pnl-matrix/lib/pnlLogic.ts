@@ -53,7 +53,6 @@ export function buildMockPnl(year: number): PnLNode[] {
     values: emptyYear(year)
   };
 
-  //  🚧  Very naive aggregation just to have numbers
   nfe.forEach((row) => {
     const month = row.data_emissao.slice(0, 7) as Month;
     if (month.startsWith(String(year))) {
@@ -75,7 +74,7 @@ export function buildMockPnl(year: number): PnLNode[] {
 
 function buildTaxTree(raw: RawTax[], rootId: 'tax3' | 'tax4', rootLabel: string): PnLNode[] {
   const rootYear = parseInt(raw[0]?.Periodo.slice(0, 4) ?? '2025')
-  const months = Object.keys(emptyYear(rootYear)) as Month[]
+  // const months = Object.keys(emptyYear(rootYear)) as Month[]
   const root: PnLNode = { id: rootId, label: rootLabel, sign: '-', values: emptyYear(rootYear) }
   const map: Record<string, PnLNode> = {}
 
@@ -87,37 +86,32 @@ function buildTaxTree(raw: RawTax[], rootId: 'tax3' | 'tax4', rootLabel: string)
       : `${rootId}_${r.tax_name}_${r.scenario}`;
 
     if (!map[childId]) {
-      // --- START OF FIX ---
       // Determine the initial sign based on the scenario type
-      let initialSign: '+' | '-' = '+'; // Default to positive for Venda, Bonificacao etc.
+      let initialSign: '+' | '-' = '+'; // Default +: Venda, Bonificacao etc.
       if (r.scenario === 'Devolucao') {
-        initialSign = '-'; // Returns/Devolucao typically imply a negative financial impact
+        initialSign = '-'; // Returns/Devolucao
       }
-      // --- END OF FIX ---
 
       map[childId] = r.tax_name === 'IPI'
         ? {
             id: 'taxIPI',
             parentId: rootId,
             label: 'IPI',
-            sign: '-', // Assuming IPI is always a deduction/cost, as per your original code
+            sign: '-',
             values: emptyYear(rootYear)
           }
         : {
             id: childId,
             parentId: rootId,
             label: `${r.tax_name} ${r.scenario === 'Venda' ? '' : r.scenario}`.trim(),
-            // Use the semantically determined sign here
             sign: initialSign,
             values: emptyYear(rootYear)
           };
     }
-    // JavaScript correctly coerces 'null' to 0 in arithmetic operations, so no change needed here
     map[childId].values[m] += r.valor;
     // only non-IPI taxes accumulate in root
     if (r.tax_name !== 'IPI') root.values[m] += r.valor;
   }
-  // ensure IPI child appears immediately under root
   const allChildren = Object.values(map);
   const ipiChild = allChildren.filter(n => n.id === 'taxIPI');
   const otherChildren = allChildren.filter(n => n.id !== 'taxIPI');
@@ -126,7 +120,7 @@ function buildTaxTree(raw: RawTax[], rootId: 'tax3' | 'tax4', rootLabel: string)
 
 export async function pivotRevenueTaxes(year: number): Promise<PnLNode[]> {
   const nodes = buildTaxTree(await fetchRevenueTaxRows(year), 'tax3', 'Impostos sobre receita');
-  // Merge hardcoded Impostos sobre receita for January 2025
+  // Merge hardcoded for January 2025
   if (year === 2025) mergeTaxExtras(nodes, extraTax3Rows);
   return nodes;
 }
@@ -141,12 +135,10 @@ export async function pivotStTaxes(year: number): Promise<PnLNode[]> {
 async function pivotRevenue(year: number): Promise<PnLNode[]> {
   const months = Object.keys(emptyYear(year)) as Month[]
 
-  // You will need to implement or adapt the gross, returns, and discount logic as per your app's needs
   const gross: PnLNode = { id: '1', parentId: 'rev', label: 'Receita Bruta', values: emptyYear(year) }
   const returns: PnLNode = { id: '2', parentId: 'rev', label: 'Devoluções', sign: '-', values: emptyYear(year) }
   const discount: PnLNode = { id: '5', parentId: 'rev', label: 'Descontos Financeiros', sign: '-', values: emptyYear(year) }
 
-  // 🆕 fetch per‑tax trees
   const revenueTaxNodes = await pivotRevenueTaxes(year)   // tax3 root + children
   const stTaxNodes      = await pivotStTaxes(year)        // tax4 root + children
 
@@ -179,19 +171,19 @@ export async function pivotRevenueLines(year:number):Promise<PnLNode[]> {
   };
   raw.forEach(r=>{const m=r.Periodo as Month; const id=r.kind==='ReceitaBruta'?'1':r.kind==='Devolucao'?'2':'5'; nodes[id].values[m]+=r.valor;});
 
-  // Hardcode additional Devolucoes for 2025-01
+  // Hardcode  Devolucoes for 2025-01
   if (year === 2025) {
     const monthKey = '2025-01' as Month;
     nodes['2'].values[monthKey] += 20735.35;
   }
 
-  // Hardcode additional Receita Bruta for 2025-01
+  // Hardcode Receita Bruta for 2025-01
   if (year === 2025) {
     const monthKey = '2025-01' as Month;
     nodes['1'].values[monthKey] += 1168710.89;
   }
 
-  // Hardcode additional Descontos Financeiros for 2025-01
+  // Hardcode Descontos Financeiros for 2025-01
   if (year === 2025) {
     const monthKey = '2025-01' as Month;
     nodes['5'].values[monthKey] += 22088.14;
@@ -232,19 +224,19 @@ export async function pivotCogsLines(year:number):Promise<PnLNode[]> {
   raw.forEach(r=>{const id=r.kind==='CPV'?'7':r.kind==='CPV_Boni'?'8':r.kind==='Perdas'?'9':'10';
     map[id].values[r.Periodo as Month]+=r.valor;});
 
-  // Hardcode additional CPV sum for 2025-01
+  // Hardcode CPV sum for 2025-01
   if (year === 2025) {
     const monthKey = '2025-01' as Month;
     map['7'].values[monthKey] += 624679.4446;
   }
 
-  // Hardcode additional CPV_Boni sum for 2025-01
+  // Hardcode CPV_Boni sum for 2025-01
   if (year === 2025) {
     const monthKey = '2025-01' as Month;
     map['8'].values[monthKey] += 5090.6876;
   }
 
-  // Hardcode additional CPV_Devol sum for 2025-01
+  // Hardcode CPV_Devol sum for 2025-01
   if (year === 2025) {
     const monthKey = '2025-01' as Month;
     map['10'].values[monthKey] += 10689.5083;
@@ -269,10 +261,9 @@ export async function pivotDespesas(year: number): Promise<PnLNode[]> {
   }
 
   for (const r of rows) {
-    if (isIgnoredTaxExpense(r)) continue   // 🚫 skip duplicate tax expenses
+    if (isIgnoredTaxExpense(r)) continue   // skip duplicate 
     if (!r.codigo_e_descricao || !r.categoria_descricao) continue
 
-    // 🚫 skip CSLL/IRPJ expenses - they are handled separately in the tax section
     if (r.categoria_descricao.includes('CSLL') || r.categoria_descricao.includes('IRPJ')) continue
 
     const groupId = `grp_${r.codigo_e_descricao}`
