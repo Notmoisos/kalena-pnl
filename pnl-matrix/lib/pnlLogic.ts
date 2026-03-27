@@ -72,6 +72,13 @@ export function buildMockPnl(year: number): PnLNode[] {
   ];
 }
 
+function findGroupByCode(groups: Record<string, PnLNode>, code: string): PnLNode | undefined {
+  return Object.values(groups).find(g => {
+    const label = (g.label || '').trim();
+    return label.startsWith(`${code} +`);
+  });
+}
+
 function buildTaxTree(raw: RawTax[], rootId: 'tax3' | 'tax4', rootLabel: string): PnLNode[] {
   const rootYear = parseInt(raw[0]?.Periodo.slice(0, 4) ?? '2025')
   // const months = Object.keys(emptyYear(rootYear)) as Month[]
@@ -317,28 +324,34 @@ export function buildIntermediateRows(
   margemEbitda: PnLNode;
   margemNetProfit: PnLNode;
 } {
+  const grp201 = findGroupByCode(groups, '2.01');
+  const grp202 = findGroupByCode(groups, '2.02');
+  const grp203 = findGroupByCode(groups, '2.03');
+  const grp204 = findGroupByCode(groups, '2.04');
+  const grp205 = findGroupByCode(groups, '2.05');
+  const grp206 = findGroupByCode(groups, '2.06');
+  const grp207 = findGroupByCode(groups, '2.07');
+  const grp208 = findGroupByCode(groups, '2.08');
+  const grp209 = findGroupByCode(groups, '2.09');
+
   const margem: PnLNode = {
     id: 'margem',
     label: 'Margem % Receita Líquida',
     kind: 'percentage',
     className: 'bg-blue-900 text-white',
-    values: emptyYear(months[0].slice(0, 4) as unknown as number)
+    values: emptyYear(Number(months[0].slice(0, 4)))
   };
-  months.forEach(m => {
-    const bruto = nodes['1'].values[m];
-    const net = nodes['6'].values[m];
-    margem.values[m] = bruto ? (net / bruto) * 100 : 0;
-  });
 
   const opIncome: PnLNode = {
     id: 'op',
     label: 'Receita Operacional',
     kind: 'intermediate',
     className: 'bg-blue-900 text-white',
-    values: emptyYear(months[0].slice(0, 4) as unknown as number)
+    values: emptyYear(Number(months[0].slice(0, 4)))
   };
   months.forEach(m => {
-    opIncome.values[m] = nodes['6'].values[m]
+    opIncome.values[m] =
+      nodes['6'].values[m]
       - nodes['7'].values[m]
       - nodes['8'].values[m]
       - nodes['9'].values[m]
@@ -350,7 +363,7 @@ export function buildIntermediateRows(
     label: 'Margem % Receita Operacional',
     kind: 'percentage',
     className: 'bg-blue-900 text-white',
-    values: emptyYear(months[0].slice(0, 4) as unknown as number)
+    values: emptyYear(Number(months[0].slice(0, 4)))
   };
   months.forEach(m => {
     const bruto = nodes['1'].values[m];
@@ -362,10 +375,10 @@ export function buildIntermediateRows(
     label: 'Lucro Bruto',
     kind: 'intermediate',
     className: 'bg-blue-900 text-white',
-    values: emptyYear(months[0].slice(0, 4) as unknown as number)
+    values: emptyYear(Number(months[0].slice(0, 4)))
   };
   months.forEach(m => {
-    lucroBruto.values[m] = opIncome.values[m] - (groups['grp_2.07 + Operacionais']?.values[m] || 0);
+    lucroBruto.values[m] = opIncome.values[m] - (grp207?.values[m] || 0);
   });
 
   const margemLucroBruto: PnLNode = {
@@ -373,7 +386,7 @@ export function buildIntermediateRows(
     label: 'Margem % Lucro Bruto',
     kind: 'percentage',
     className: 'bg-blue-900 text-white',
-    values: emptyYear(months[0].slice(0, 4) as unknown as number)
+    values: emptyYear(Number(months[0].slice(0, 4)))
   };
   months.forEach(m => {
     const bruto = nodes['1'].values[m];
@@ -385,17 +398,18 @@ export function buildIntermediateRows(
     label: 'EBITDA',
     kind: 'intermediate',
     className: 'bg-blue-900 text-white',
-    values: emptyYear(months[0].slice(0, 4) as unknown as number)
+    values: emptyYear(Number(months[0].slice(0, 4)))
   };
   months.forEach(m => {
-    ebitda.values[m] = opIncome.values[m]
-      - (groups['grp_2.01 + Importação']?.values[m] || 0)
-      - (groups['grp_2.03 + Despesas com Pessoal']?.values[m] || 0)
-      - (groups['grp_2.04 + Gerais e administrativas']?.values[m] || 0)
-      - (groups['grp_2.05 + Marketing / Comercial']?.values[m] || 0)
-      - (groups['grp_2.07 + Operacionais']?.values[m] || 0)
-      - (groups['grp_2.08 + Trade Marketing']?.values[m] || 0)
-      - (groups['grp_2.09 + Serviços tomados']?.values[m] || 0);
+    ebitda.values[m] =
+      opIncome.values[m]
+      - (grp201?.values[m] || 0)
+      - (grp203?.values[m] || 0)
+      - (grp204?.values[m] || 0)
+      - (grp205?.values[m] || 0)
+      - (grp207?.values[m] || 0)
+      - (grp208?.values[m] || 0)
+      - (grp209?.values[m] || 0);
   });
 
   const margemEbitda: PnLNode = {
@@ -403,7 +417,7 @@ export function buildIntermediateRows(
     label: 'Margem % EBITDA',
     kind: 'percentage',
     className: 'bg-blue-900 text-white',
-    values: emptyYear(months[0].slice(0, 4) as unknown as number)
+    values: emptyYear(Number(months[0].slice(0, 4)))
   };
   months.forEach(m => {
     const liquida = nodes['6'].values[m];
@@ -415,12 +429,13 @@ export function buildIntermediateRows(
     label: 'Lucro Líquido',
     kind: 'intermediate',
     className: 'bg-blue-900 text-white',
-    values: emptyYear(months[0].slice(0, 4) as unknown as number)
+    values: emptyYear(Number(months[0].slice(0, 4)))
   };
   months.forEach(m => {
-    netProfit.values[m] = ebitda.values[m]
-      - (groups['grp_2.06 + Financeiras']?.values[m] || 0)
-      - (groups['grp_2.02 + Tributárias']?.values[m] || 0);
+    netProfit.values[m] =
+      ebitda.values[m]
+      - (grp206?.values[m] || 0)
+      - (grp202?.values[m] || 0);
   });
 
   const margemNetProfit: PnLNode = {
@@ -428,14 +443,30 @@ export function buildIntermediateRows(
     label: 'Margem % Lucro Liquido',
     kind: 'percentage',
     className: 'bg-blue-900 text-white',
-    values: emptyYear(months[0].slice(0, 4) as unknown as number)
+    values: emptyYear(Number(months[0].slice(0, 4)))
   };
   months.forEach(m => {
     const liquida = nodes['6'].values[m];
     margemNetProfit.values[m] = liquida ? (netProfit.values[m] / liquida) * 100 : 0;
   });
 
-  return { margem, opIncome, lucroBruto, ebitda, netProfit, margemOpIncome, margemLucroBruto, margemEbitda, margemNetProfit };
+  months.forEach(m => {
+    const bruto = nodes['1'].values[m];
+    const net = nodes['6'].values[m];
+    margem.values[m] = bruto ? (net / bruto) * 100 : 0;
+  });
+
+  return {
+    margem,
+    opIncome,
+    lucroBruto,
+    ebitda,
+    netProfit,
+    margemOpIncome,
+    margemLucroBruto,
+    margemEbitda,
+    margemNetProfit
+  };
 }
 
 function createDetailPercentageRow(
@@ -477,25 +508,17 @@ export function buildDetailPercentageRows(
   // b. Descontos Financeiros
   createAndStore(nodes['5']);
   // Helper to find specific groups by label substring
-  const findGroup = (labelSubstring: string) => Object.values(groups).find(g => g.label.includes(labelSubstring));
+  const findGroup = (code: string) => findGroupByCode(groups, code);
   // c. 2.07 + Operacionais
-  createAndStore(findGroup('2.07 + Operacionais'));
-  // d. 2.01 + Importação
-  createAndStore(findGroup('2.01 + Importação'));
-  // e. 2.03 + Despesas com Pessoal
-  createAndStore(findGroup('2.03 + Despesas com Pessoal'));
-  // f. 2.04 + Gerais e administrativas
-  createAndStore(findGroup('2.04 + Gerais e administrativas'));
-  // g. 2.05 + Marketing / Comercial
-  createAndStore(findGroup('2.05 + Marketing / Comercial'));
-  // i. 2.08 + Trade Marketing
-  createAndStore(findGroup('2.08 + Trade Marketing'));
-  // j. 2.09 + Serviços tomados
-  createAndStore(findGroup('2.09 + Serviços tomados'));
-  // k. 2.06 + Financeiras
-  createAndStore(findGroup('2.06 + Financeiras'));
-  // l. 2.02 + Tributárias
-  createAndStore(findGroup('2.02 + Tributárias'));
+  createAndStore(findGroup('2.07'));
+  createAndStore(findGroup('2.01'));
+  createAndStore(findGroup('2.03'));
+  createAndStore(findGroup('2.04'));
+  createAndStore(findGroup('2.05'));
+  createAndStore(findGroup('2.08'));
+  createAndStore(findGroup('2.09'));
+  createAndStore(findGroup('2.06'));
+  createAndStore(findGroup('2.02'));
 
   // m. COGS / CPV groups
   createAndStore(nodes['7']);   // CPV
@@ -697,11 +720,11 @@ export async function buildPnl(year: number): Promise<PnLNode[]> {
   const detailPercRowsMap = buildDetailPercentageRows(nodes, groups, taxRootNode, months);
   const getDetailPerc = (parentId: string | undefined) => parentId ? detailPercRowsMap[`${parentId}_percGross`] : undefined;
 
-  const impGroup = Object.values(groups).find(g => g.label.includes('2.01 + Importação'));
-  const fin6Group = Object.values(groups).find(g => g.label.includes('2.06 + Financeiras'));
-  const fin2Group = Object.values(groups).find(g => g.label.includes('2.02 + Tributárias'));
-  const otherGroup = Object.values(groups).find(g => g.label.includes('2.10 + Desconsiderados'));
-  const opGroup = Object.values(groups).find(g => g.label.includes('2.07 + Operacionais'));
+  const impGroup = findGroupByCode(groups, '2.01');
+  const fin6Group = findGroupByCode(groups, '2.06');
+  const fin2Group = findGroupByCode(groups, '2.02');
+  const otherGroup = findGroupByCode(groups, '2.10');
+  const opGroup = findGroupByCode(groups, '2.07');
 
   const mainGroups = Object.values(groups).filter(g =>
     ![impGroup?.id, opGroup?.id, fin6Group?.id, fin2Group?.id, otherGroup?.id].includes(g.id)

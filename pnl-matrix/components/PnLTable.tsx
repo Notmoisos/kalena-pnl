@@ -755,13 +755,11 @@ const PnLTable = forwardRef<PnLTableHandle, {
               className={clsx(
                 'border-b last:border-0',
                 row.original.kind === 'breakdown' && 'bg-[#e3e6f1]',
-                // green for family rows AND their %-of-gross siblings under CPV including Devolucoes
                 (row.original.kind === 'family' ||
                   (row.original.kind === 'detailPercentage' && ['7','8','9','10'].includes(row.original.parentId || '')))
                     && 'bg-emerald-100',
                 row.original.kind === 'loading' && 'bg-gray-100 text-gray-500',
                 (row.original.kind === 'intermediate' || row.original.kind === 'percentage') && 'bg-blue-900 text-white',
-                // keep light-blue for other detailPercentages (e.g. under 2.07)
                 row.original.kind === 'detailPercentage'
                   && !(['7','8','9'].includes(row.original.parentId || ''))
                   && row.depth > 0

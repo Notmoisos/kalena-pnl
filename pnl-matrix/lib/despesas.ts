@@ -26,8 +26,8 @@ LEFT JOIN (
 ) mc ON SUBSTRING_INDEX(cp.codigo_categoria, '.', 2) = mc.codigo AND cp.nome_projeto = mc.nome_projeto
 WHERE YEAR(STR_TO_DATE(cp.data_entrada, '%Y-%m-%d')) = ?
   AND cp.status_titulo != 'CANCELADO'
-  AND NOT (mc.descricao = 'Operacionais' AND cat.descricao = 'Devolução') 
-GROUP BY Periodo, codigo_e_descricao, categoria_descricao;` // Manually remove Devolucao from despesas as requested
+  AND NOT (SUBSTRING_INDEX(cp.codigo_categoria, '.', 2) = '2.07' AND cat.descricao = 'Devolução')
+GROUP BY Periodo, codigo_e_descricao, categoria_descricao;`
 
 export async function fetchDespesas(year: number): Promise<RawDespesa[]> {
   const pool = await getMysqlPool()
