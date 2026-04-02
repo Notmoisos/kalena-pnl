@@ -499,32 +499,45 @@ export function buildDetailPercentageRows(
   const receitaBrutaNode = nodes['1'];
   if (!receitaBrutaNode) return {};
   const detailPercentageNodes: Record<string, PnLNode> = {};
+
   const createAndStore = (parentNode: PnLNode | undefined) => {
     const node = createDetailPercentageRow(parentNode, receitaBrutaNode, months);
     if (node) detailPercentageNodes[node.id] = node;
   };
-  // a. Impostos sobre receita
-  createAndStore(taxRoot);
   // b. Descontos Financeiros
   createAndStore(nodes['5']);
   // Helper to find specific groups by label substring
-  const findGroup = (code: string) => findGroupByCode(groups, code);
+  const findGroup = (labelSubstring: string) => Object.values(groups).find(g => g.label.includes(labelSubstring));
   // c. 2.07 + Operacionais
-  createAndStore(findGroup('2.07'));
-  createAndStore(findGroup('2.01'));
-  createAndStore(findGroup('2.03'));
-  createAndStore(findGroup('2.04'));
-  createAndStore(findGroup('2.05'));
-  createAndStore(findGroup('2.08'));
-  createAndStore(findGroup('2.09'));
-  createAndStore(findGroup('2.06'));
-  createAndStore(findGroup('2.02'));
+  createAndStore(findGroup('2.07 + Operacionais'));
+  // d. 2.01 + Importação
+  createAndStore(findGroup('2.01 + Importação'));
+  // e. 2.03 + Despesas com Pessoal
+  createAndStore(findGroup('2.03 + Despesas com Pessoal'));
+  // f. 2.04 + Gerais e administrativas
+  createAndStore(findGroup('2.04 + Gerais e administrativas'));
+  // g. 2.05 + Marketing / Comercial
+  createAndStore(findGroup('2.05 + Marketing / Comercial'));
+  // i. 2.08 + Trade Marketing
+  createAndStore(findGroup('2.08 + Trade Marketing'));
+  // j. 2.09 + Serviços tomados
+  createAndStore(findGroup('2.09 + Serviços tomados'));
+  // k. 2.06 + Financeiras
+  createAndStore(findGroup('2.06 + Financeiras'));
+  // l. 2.02 + Tributárias
+  createAndStore(findGroup('2.02 + Tributárias'));
+  
+  createAndStore(taxRoot);
+  createAndStore(nodes['5']);
+  createAndStore(nodes['7']);
+  createAndStore(nodes['8']);
+  createAndStore(nodes['9']);
+  createAndStore(nodes['10']);
 
-  // m. COGS / CPV groups
-  createAndStore(nodes['7']);   // CPV
-  createAndStore(nodes['8']);   // CPV Bonificações e Amostras
-  createAndStore(nodes['9']);   // Perdas e Descartes
-  createAndStore(nodes['10']);  // CPV Devoluções
+  // todas as despesas de grupo, automaticamente
+  Object.values(groups).forEach(group => {
+    createAndStore(group);
+  });
 
   return detailPercentageNodes;
 }

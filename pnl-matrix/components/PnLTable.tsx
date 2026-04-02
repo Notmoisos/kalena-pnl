@@ -424,12 +424,12 @@ const PnLTable = forwardRef<PnLTableHandle, {
     const totalCol: ColumnDef<Node, any> = {
   id: 'year_total',
   header: 'Consolidado',
-  cell: ({ row }: { row: any }) => (
-    <span className="font-semibold text-right whitespace-nowrap">
+  cell: ({ row }) => (
+    <span className="text-right block whitespace-nowrap">
       {renderYearTotal(row, months)}
     </span>
-  ),
-};
+  )
+}
 
     return [
       {
