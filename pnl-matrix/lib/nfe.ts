@@ -25,14 +25,41 @@ const taxColumnMap: Record<string, string> = {
   'IPI': 'parsed_ipi_value',
 };
 
+const q1_2026_filter = `
+  DATE(data_emissao) BETWEEN DATE '2026-01-01' AND DATE '2026-03-31'
+`
+
+const pisCofinsBaseExpr = `
+  (
+    COALESCE(SAFE_CAST(parsed_total_product_value AS FLOAT64), 0)
+    + COALESCE(SAFE_CAST(parsed_frete_value AS FLOAT64), 0)
+  )
+`
+
+const pisExpr = `
+  CASE
+    WHEN ${q1_2026_filter}
+      THEN ${pisCofinsBaseExpr} * 0.0165
+    ELSE COALESCE(SAFE_CAST(parsed_pis_value AS FLOAT64), 0)
+  END
+`
+
+const cofinsExpr = `
+  CASE
+    WHEN ${q1_2026_filter}
+      THEN ${pisCofinsBaseExpr} * 0.076
+    ELSE COALESCE(SAFE_CAST(parsed_cofins_value AS FLOAT64), 0)
+  END
+`
+
 // ────────── 1.  Revenue‑related taxes  (#3) ──────────
 export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
   const sql = `
   WITH union_all AS (
     -- Venda
     SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period, 'Venda' AS scenario,
-      SAFE_CAST(parsed_pis_value           AS FLOAT64) AS pis,
-      SAFE_CAST(parsed_cofins_value        AS FLOAT64) AS cofins,
+      ${pisExpr} AS pis,
+      ${cofinsExpr} AS cofins,
       SAFE_CAST(parsed_iss_value           AS FLOAT64) AS iss,
       SAFE_CAST(parsed_ir_value            AS FLOAT64) AS ir,
       SAFE_CAST(parsed_fcp_calc_value AS FLOAT64) AS fcp,
@@ -50,8 +77,8 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
     UNION ALL
     -- Bonificação
     SELECT DATE_TRUNC(DATE(data_emissao), MONTH), 'Bonificacao',
-      SAFE_CAST(parsed_pis_value AS FLOAT64),
-      SAFE_CAST(parsed_cofins_value AS FLOAT64),
+      ${pisExpr} AS pis,
+      ${cofinsExpr} AS cofins,
       SAFE_CAST(parsed_iss_value AS FLOAT64),
       SAFE_CAST(parsed_ir_value AS FLOAT64),
       COALESCE(
@@ -70,13 +97,13 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
       AND tipo_operacao='Saída'
       AND finalidade='Normal/Venda'
       AND cancelada='Não'
-      AND nome_cenario='Bonificação'
+      AND nome_cenario LIKE '%Bonificação%'
 
     UNION ALL
     -- Devolução  (sign flip)
     SELECT DATE_TRUNC(DATE(data_emissao), MONTH), 'Devolucao',
-      -SAFE_CAST(parsed_pis_value AS FLOAT64),
-      -SAFE_CAST(parsed_cofins_value AS FLOAT64),
+      -(${pisExpr}) AS pis,
+      -(${cofinsExpr}) AS cofins,
       -SAFE_CAST(parsed_iss_value AS FLOAT64),
       -SAFE_CAST(parsed_ir_value AS FLOAT64),
       -COALESCE(
@@ -155,7 +182,7 @@ export async function fetchStTaxRows(year: number): Promise<RawTax[]> {
       AND tipo_operacao='Saída'
       AND finalidade='Normal/Venda'
       AND cancelada='Não'
-      AND nome_cenario='Bonificação'
+      AND nome_cenario LIKE '%Bonificação%'
 
     UNION ALL
     SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period, 'Devolucao' AS scenario,
@@ -190,7 +217,15 @@ SELECT FORMAT_DATE('%Y-%m', period) AS Periodo, tax_name, scenario, SUM(COALESCE
 }
 
 export async function fetchTaxDetails(ym: string, taxName: string, scenario: string): Promise<TaxDetail[]> {
-  const taxColumn = taxColumnMap[taxName];
+  let taxColumn = taxColumnMap[taxName];
+
+  if (taxName === 'PIS') {
+    taxColumn = pisExpr;
+  }
+
+  if (taxName === 'Cofins') {
+    taxColumn = cofinsExpr;
+  }
   if (!taxColumn) {
     console.error(`Invalid taxName received: ${taxName}`);
     return [];
@@ -200,7 +235,7 @@ export async function fetchTaxDetails(ym: string, taxName: string, scenario: str
   if (scenario === 'Venda') {
     scenarioFilter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND (nome_cenario='Venda' OR nome_cenario='Inativo')`;
   } else if (scenario === 'Bonificacao') {
-    scenarioFilter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND nome_cenario='Bonificação'`;
+  scenarioFilter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND nome_cenario LIKE '%Bonificação%'`;
   } else if (scenario === 'Devolucao') {
     scenarioFilter = `finalidade='Devolução' AND cancelada='Não'`;
     signMultiplier = -1;
@@ -212,14 +247,14 @@ export async function fetchTaxDetails(ym: string, taxName: string, scenario: str
     SELECT
       COALESCE(produto_norm, parsed_x_prod_value) AS produto,
       COUNT(*) AS n_nfes,
-      SUM(SAFE_CAST(${taxColumn} AS FLOAT64) * ${signMultiplier}) AS valor_total
+      SUM((${taxColumn}) * ${signMultiplier}) AS valor_total
     FROM
       \`${process.env.BQ_TABLE}\`
     WHERE
       ${scenarioFilter}
       AND FORMAT_DATE('%Y-%m', DATE(data_emissao)) = @ym
-      AND SAFE_CAST(${taxColumn} AS FLOAT64) IS NOT NULL
-      AND SAFE_CAST(${taxColumn} AS FLOAT64) != 0
+      AND (${taxColumn}) IS NOT NULL
+      AND (${taxColumn}) != 0
     GROUP BY
       produto
     ORDER BY

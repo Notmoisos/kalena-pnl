@@ -44,7 +44,7 @@ export async function fetchFamilyDetails (
 
     case 'CPV_Boni':
       filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não'
-                AND nome_cenario='Bonificação'`;
+                AND nome_cenario LIKE '%Bonificação%'`;
       selector = 'parsed_unit_cost * parsed_quantity_units';
       break;
 

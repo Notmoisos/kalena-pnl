@@ -45,7 +45,7 @@ export async function fetchProductDetails(
       break
     case 'CPV_Boni':
       filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não'
-                AND nome_cenario='Bonificação'`
+                AND nome_cenario LIKE '%Bonificação%'`
       selector = 'SAFE_CAST(parsed_unit_cost AS FLOAT64) * SAFE_CAST(parsed_quantity_units AS FLOAT64)'
       break
     case 'Perdas':
