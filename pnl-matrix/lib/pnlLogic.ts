@@ -2,6 +2,7 @@ import { nfe, despesa } from './mockData';
 import { fetchDespesas } from './despesas'
 import { fetchTaxExpenses } from './despesas'
 import { fetchRevenueTaxRows, fetchStTaxRows, RawTax } from './nfe'
+import { fetchOnlineTaxRows } from './nfeOnlineTaxes'
 import { fetchRevenueAggregates } from '@/lib/nfeRevenue';
 import { fetchJurosMultaAggregates } from '@/lib/nfeRevenue';
 import { fetchCogsAggregates } from '@/lib/nfeCosts';
@@ -139,6 +140,22 @@ export async function pivotStTaxes(year: number): Promise<PnLNode[]> {
   return nodes;
 }
 
+export async function pivotOnlineTaxes(year: number): Promise<PnLNode> {
+  const node: PnLNode = {
+    id: 'tax_online',
+    label: 'Impostos Online',
+    sign: '-',
+    values: emptyYear(year)
+  };
+
+  const rows = await fetchOnlineTaxRows(year);
+  for (const r of rows) {
+    node.values[r.Periodo as Month] += Number(r.valor) || 0;
+  }
+
+  return node;
+}
+
 async function pivotRevenue(year: number): Promise<PnLNode[]> {
   const months = Object.keys(emptyYear(year)) as Month[]
 
@@ -148,6 +165,7 @@ async function pivotRevenue(year: number): Promise<PnLNode[]> {
 
   const revenueTaxNodes = await pivotRevenueTaxes(year)   // tax3 root + children
   const stTaxNodes      = await pivotStTaxes(year)        // tax4 root + children
+  const onlineTaxNode   = await pivotOnlineTaxes(year)
 
   const taxRoot = revenueTaxNodes.find((n) => n.id === 'tax3')!
 
@@ -155,13 +173,14 @@ async function pivotRevenue(year: number): Promise<PnLNode[]> {
     id: '6', parentId: 'rev', label: 'Receita Líquida', values: emptyYear(year)
   }
   months.forEach((m) => {
-    net.values[m] = gross.values[m] + returns.values[m] + taxRoot.values[m] + discount.values[m]
+    net.values[m] = gross.values[m] + returns.values[m] + taxRoot.values[m] + onlineTaxNode.values[m] + discount.values[m]
   })
 
   return [
     gross,
     returns,
     ...revenueTaxNodes,
+    onlineTaxNode,
     ...stTaxNodes,
     discount,
     net,
@@ -203,10 +222,11 @@ export async function pivotRevenueLines(year:number):Promise<PnLNode[]> {
 
   const revenueTaxNodes = await pivotRevenueTaxes(year); // tax3 root + children
   const stTaxNodes      = await pivotStTaxes(year);        // tax4 root + children
+  const onlineTaxNode   = await pivotOnlineTaxes(year);
   const taxRoot = revenueTaxNodes.find(n => n.id === 'tax3')!;
   const net: PnLNode = { id: '6', label: 'Receita Líquida', sign: '+', values: emptyYear(year) };
   months.forEach(m => {
-    net.values[m] = nodes['1'].values[m] - taxRoot.values[m] - nodes['5'].values[m];
+    net.values[m] = nodes['1'].values[m] - taxRoot.values[m] - onlineTaxNode.values[m] - nodes['5'].values[m];
   });
   net.kind = 'intermediate';
   net.className = 'bg-blue-900 text-white';
@@ -214,6 +234,7 @@ export async function pivotRevenueLines(year:number):Promise<PnLNode[]> {
     nodes['1'],
     nodes['2'],
     ...revenueTaxNodes,
+    onlineTaxNode,
     ...stTaxNodes,
     nodes['5'],
     net,
@@ -727,6 +748,7 @@ export async function buildPnl(year: number): Promise<PnLNode[]> {
 
   const taxRootNode = revenueLines.find(n => n.id === 'tax3');
   const taxChildren = revenueLines.filter(n => n.parentId === 'tax3');
+  const onlineTaxNode = revenueLines.find(n => n.id === 'tax_online');
   const stRootNode = revenueLines.find(n => n.id === 'tax4');
   const stChildren = revenueLines.filter(n => n.parentId === 'tax4');
 
@@ -750,6 +772,7 @@ export async function buildPnl(year: number): Promise<PnLNode[]> {
     nodes['2'],
     nodes['2_volumes'],
     taxRootNode,
+    onlineTaxNode,
     ...(taxRootNode ? [getDetailPerc(taxRootNode.id)] : []),
     ...taxChildren,
     stRootNode,

@@ -72,6 +72,7 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
       AND tipo_operacao='Saída'
       AND finalidade='Normal/Venda'
       AND cancelada='Não'
+      AND (doc_source IS NULL OR doc_source = 'OMIE')
       AND (nome_cenario='Venda' OR nome_cenario='Inativo')
 
     UNION ALL
@@ -97,6 +98,7 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
       AND tipo_operacao='Saída'
       AND finalidade='Normal/Venda'
       AND cancelada='Não'
+      AND (doc_source IS NULL OR doc_source = 'OMIE')
       AND nome_cenario LIKE '%Bonificação%'
 
     UNION ALL
@@ -120,6 +122,7 @@ export async function fetchRevenueTaxRows(year: number): Promise<RawTax[]> {
     WHERE EXTRACT(YEAR FROM DATE(data_emissao)) = @year
       AND finalidade='Devolução'
       AND cancelada='Não'
+      AND (doc_source IS NULL OR doc_source = 'OMIE')
   )
 
   SELECT
