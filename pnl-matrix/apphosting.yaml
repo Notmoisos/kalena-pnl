@@ -39,7 +39,7 @@ env:
     value: kalenapnl
   - variable: BQ_TABLE
     value: kalenapnl.kalena.etl_notas_unificada
-  - variable: BQ_TABLE_BLING=etl_notas_bling
+  - variable: BQ_TABLE_BLING
     value: kalenapnl.kalena.etl_notas_bling
 
 
