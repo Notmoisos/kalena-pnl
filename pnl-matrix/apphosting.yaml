@@ -18,7 +18,7 @@ env:
     value: kalena
     # Same as API_KEY above but with the long form secret reference with pinned version.
   - variable: MYSQL_PASSWORD
-    value: 2++rGdBOtVzJWB(n
+    value: WKc3iZa6Itu8AvPb
     # Same as API_KEY above but with the long form secret reference with pinned version.
   - variable: MYSQL_DATABASE
     value: kalena
