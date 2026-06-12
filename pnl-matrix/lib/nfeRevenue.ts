@@ -6,29 +6,77 @@ export interface NfeDetail { produto:string; n_nfes:number; valor_total:number; 
 
 export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
   const sql = `WITH base AS (
-    SELECT DATE_TRUNC(DATE(data_emissao), MONTH) AS period,'ReceitaBruta' AS kind,
-           SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64) AS amount
+    SELECT
+      DATE_TRUNC(DATE(data_emissao), MONTH) AS period,
+      'ReceitaBruta' AS kind,
+      COALESCE(SAFE_CAST(parsed_total_product_value AS FLOAT64), 0)
+        + COALESCE(SAFE_CAST(parsed_frete_value AS FLOAT64), 0) AS amount
     FROM \`${process.env.BQ_TABLE}\`
-      WHERE tipo_operacao='Saída'
-      AND finalidade='Normal/Venda'
-      AND cancelada='Não'
-      AND (nome_cenario='Venda' OR nome_cenario='Inativo')
+    WHERE tipo_operacao = 'Saída'
+      AND finalidade = 'Normal/Venda'
+      AND cancelada = 'Não'
+      AND (
+        (
+          doc_source = 'OMIE'
+          AND nome_cenario = 'Venda'
+          AND COALESCE(pedido_devolvido, 'N') != 'S'
+        )
+        OR
+        (
+          doc_source = 'BLING'
+          AND COALESCE(nome_cenario, 'Venda') = 'Venda'
+        )
+      )
 
     UNION ALL
-    SELECT DATE_TRUNC(DATE(data_emissao), MONTH),'Devolucao',
-           SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64)
+
+    SELECT
+      DATE_TRUNC(DATE(data_emissao), MONTH),
+      'Devolucao',
+      COALESCE(SAFE_CAST(parsed_total_product_value AS FLOAT64), 0)
+        + COALESCE(SAFE_CAST(parsed_frete_value AS FLOAT64), 0)
     FROM \`${process.env.BQ_TABLE}\`
-    WHERE finalidade='Devolução' AND cancelada='Não'
+    WHERE finalidade = 'Devolução'
+      AND cancelada = 'Não'
+
     UNION ALL
-    SELECT DATE_TRUNC(DATE(data_emissao), MONTH),'Desconto',
-           SAFE_CAST(parsed_desconto_proportional_value AS FLOAT64)
+
+    SELECT
+      DATE_TRUNC(DATE(data_emissao), MONTH),
+      'Desconto',
+      COALESCE(SAFE_CAST(parsed_desconto_proportional_value AS FLOAT64), 0)
     FROM \`${process.env.BQ_TABLE}\`
-    WHERE tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não'
-      AND (nome_cenario='Venda' OR nome_cenario='Inativo') )
-  SELECT FORMAT_DATE('%Y-%m', period) AS Periodo, kind, SUM(amount) AS valor,
-         CASE kind WHEN 'Devolucao' THEN '-' WHEN 'Desconto' THEN '-' ELSE '+' END AS sign
-  FROM base WHERE EXTRACT(YEAR FROM period)=@year GROUP BY Periodo, kind`;
-  const [rows]=await bq.query({query:sql,params:{year}}); return rows as RevAgg[];
+    WHERE tipo_operacao = 'Saída'
+      AND finalidade = 'Normal/Venda'
+      AND cancelada = 'Não'
+      AND (
+        (
+          doc_source = 'OMIE'
+          AND nome_cenario = 'Venda'
+          AND COALESCE(pedido_devolvido, 'N') != 'S'
+        )
+        OR
+        (
+          doc_source = 'BLING'
+          AND COALESCE(nome_cenario, 'Venda') = 'Venda'
+        )
+      )
+  )
+  SELECT
+    FORMAT_DATE('%Y-%m', period) AS Periodo,
+    kind,
+    SUM(amount) AS valor,
+    CASE kind
+      WHEN 'Devolucao' THEN '-'
+      WHEN 'Desconto' THEN '-'
+      ELSE '+'
+    END AS sign
+  FROM base
+  WHERE EXTRACT(YEAR FROM period) = @year
+  GROUP BY Periodo, kind`;
+
+  const [rows] = await bq.query({ query: sql, params: { year } });
+  return rows as RevAgg[];
 }
 
 export async function fetchNfeDetails(ym:string, kind:RevKind):Promise<NfeDetail[]> {
