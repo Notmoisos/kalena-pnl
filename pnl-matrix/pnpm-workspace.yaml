@@ -1,2 +1,12 @@
 onlyBuiltDependencies:
   - unrs-resolver
+
+packages:
+  - "."
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  "@firebase/util": true
+  "protobufjs": true
+  "unrs-resolver": true
