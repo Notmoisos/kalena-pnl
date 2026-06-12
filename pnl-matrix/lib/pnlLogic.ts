@@ -215,10 +215,10 @@ export async function pivotRevenueLines(year:number):Promise<PnLNode[]> {
     nodes['5'].values[monthKey] += 22088.14;
   }
 
-  // Subtract Returns from Gross Revenue so that node '1' = Gross Sales – Returns
-  months.forEach(m => {
-    nodes['1'].values[m] -= nodes['2'].values[m];
-  });
+  // // Subtract Returns from Gross Revenue so that node '1' = Gross Sales – Returns
+  // months.forEach(m => {
+  //   nodes['1'].values[m] -= nodes['2'].values[m];
+  // });
 
   const revenueTaxNodes = await pivotRevenueTaxes(year); // tax3 root + children
   const stTaxNodes      = await pivotStTaxes(year);        // tax4 root + children
@@ -226,7 +226,12 @@ export async function pivotRevenueLines(year:number):Promise<PnLNode[]> {
   const taxRoot = revenueTaxNodes.find(n => n.id === 'tax3')!;
   const net: PnLNode = { id: '6', label: 'Receita Líquida', sign: '+', values: emptyYear(year) };
   months.forEach(m => {
-    net.values[m] = nodes['1'].values[m] - taxRoot.values[m] - onlineTaxNode.values[m] - nodes['5'].values[m];
+    net.values[m] =
+  nodes['1'].values[m]
+  - nodes['2'].values[m]
+  - taxRoot.values[m]
+  - onlineTaxNode.values[m]
+  - nodes['5'].values[m];
   });
   net.kind = 'intermediate';
   net.className = 'bg-blue-900 text-white';
