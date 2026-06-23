@@ -1,6 +1,8 @@
 import { FamilyApiRow } from './nfeFamily'
 import { ProductApiRow } from './nfeProduct'
 import { getBigQuery } from './bq';
+import { RETURNS_BASE_FILTER, SALES_BASE_FILTER } from './nfeFilters';
+
 const bq = getBigQuery();
 
 type VolumeKind = 'ReceitaBruta' | 'Devolucao'
@@ -12,11 +14,10 @@ export async function fetchVolumeFamilyDetails(
   let filter = ''
   switch (kind) {
     case 'ReceitaBruta':
-      filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não'
-                AND (nome_cenario='Venda' OR nome_cenario='Inativo')`
+      filter = SALES_BASE_FILTER
       break
     case 'Devolucao':
-      filter = `finalidade='Devolução' AND cancelada='Não'`
+      filter = RETURNS_BASE_FILTER
       break
   }
   const sql = `
@@ -44,11 +45,10 @@ export async function fetchVolumeProductDetails(
   let filter = ''
   switch (kind) {
     case 'ReceitaBruta':
-      filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não'
-                AND (nome_cenario='Venda' OR nome_cenario='Inativo')`
+      filter = SALES_BASE_FILTER
       break
     case 'Devolucao':
-      filter = `finalidade='Devolução' AND cancelada='Não'`
+      filter = RETURNS_BASE_FILTER
       break
   }
 

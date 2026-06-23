@@ -1,10 +1,29 @@
 import { getBigQuery } from './bq';
-const bq = getBigQuery();
-export type RevKind = 'ReceitaBruta' | 'Devolucao' | 'Desconto';
-export interface RevAgg { Periodo:string; kind:RevKind; valor:number; sign:'+'|'-'; }
-export interface NfeDetail { produto:string; n_nfes:number; valor_total:number; }
+import { DISCOUNT_BASE_FILTER, RETURNS_BASE_FILTER, SALES_BASE_FILTER } from './nfeFilters';
 
-export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
+const bq = getBigQuery();
+
+export type RevKind = 'ReceitaBruta' | 'Devolucao' | 'Desconto';
+
+export interface RevAgg {
+  Periodo: string;
+  kind: RevKind;
+  valor: number;
+  sign: '+' | '-';
+}
+
+export interface NfeDetail {
+  produto: string;
+  n_nfes: number;
+  valor_total: number;
+}
+
+export interface JurosMultaAgg {
+  Periodo: string;
+  valor: number;
+}
+
+export async function fetchRevenueAggregates(year: number): Promise<RevAgg[]> {
   const sql = `WITH base AS (
     SELECT
       DATE_TRUNC(DATE(data_emissao), MONTH) AS period,
@@ -12,21 +31,7 @@ export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
       COALESCE(SAFE_CAST(parsed_total_product_value AS FLOAT64), 0)
         + COALESCE(SAFE_CAST(parsed_frete_value AS FLOAT64), 0) AS amount
     FROM \`${process.env.BQ_TABLE}\`
-    WHERE tipo_operacao = 'Saída'
-      AND finalidade = 'Normal/Venda'
-      AND cancelada = 'Não'
-      AND (
-        (
-          doc_source = 'OMIE'
-          AND nome_cenario = 'Venda'
-          AND COALESCE(pedido_devolvido, 'N') != 'S'
-        )
-        OR
-        (
-          doc_source = 'BLING'
-          AND COALESCE(nome_cenario, 'Venda') = 'Venda'
-        )
-      )
+    WHERE ${SALES_BASE_FILTER}
 
     UNION ALL
 
@@ -36,8 +41,7 @@ export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
       COALESCE(SAFE_CAST(parsed_total_product_value AS FLOAT64), 0)
         + COALESCE(SAFE_CAST(parsed_frete_value AS FLOAT64), 0)
     FROM \`${process.env.BQ_TABLE}\`
-    WHERE finalidade = 'Devolução'
-      AND cancelada = 'Não'
+    WHERE ${RETURNS_BASE_FILTER}
 
     UNION ALL
 
@@ -46,21 +50,7 @@ export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
       'Desconto',
       COALESCE(SAFE_CAST(parsed_desconto_proportional_value AS FLOAT64), 0)
     FROM \`${process.env.BQ_TABLE}\`
-    WHERE tipo_operacao = 'Saída'
-      AND finalidade = 'Normal/Venda'
-      AND cancelada = 'Não'
-      AND (
-        (
-          doc_source = 'OMIE'
-          AND nome_cenario = 'Venda'
-          AND COALESCE(pedido_devolvido, 'N') != 'S'
-        )
-        OR
-        (
-          doc_source = 'BLING'
-          AND COALESCE(nome_cenario, 'Venda') = 'Venda'
-        )
-      )
+    WHERE ${DISCOUNT_BASE_FILTER}
   )
   SELECT
     FORMAT_DATE('%Y-%m', period) AS Periodo,
@@ -79,44 +69,44 @@ export async function fetchRevenueAggregates(year:number):Promise<RevAgg[]> {
   return rows as RevAgg[];
 }
 
-export async function fetchNfeDetails(ym:string, kind:RevKind):Promise<NfeDetail[]> {
+export async function fetchNfeDetails(ym: string, kind: RevKind): Promise<NfeDetail[]> {
   let filter: string;
   let valueColumn: string;
-  let groupByColumn = "COALESCE( produto_norm, parsed_x_prod_value_norm, parsed_x_prod_value_raw, parsed_x_prod_value)"
+  const groupByColumn =
+    'COALESCE(produto_norm, parsed_x_prod_value_norm, parsed_x_prod_value_raw, parsed_x_prod_value)';
+
   switch (kind) {
     case 'ReceitaBruta':
-      filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND (nome_cenario='Venda' OR nome_cenario='Inativo')`;
-      valueColumn = 'SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64)';
+      filter = SALES_BASE_FILTER;
+      valueColumn =
+        'SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64)';
       break;
     case 'Devolucao':
-      filter = `finalidade='Devolução' AND cancelada='Não'`;
-      valueColumn = 'SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64)';
+      filter = RETURNS_BASE_FILTER;
+      valueColumn =
+        'SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64)';
       break;
     case 'Desconto':
-      filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND (nome_cenario='Venda' OR nome_cenario='Inativo') AND SAFE_CAST(parsed_desconto_proportional_value AS FLOAT64) > 0`;
-      valueColumn = 'parsed_desconto_proportional_value';
+      filter = DISCOUNT_BASE_FILTER;
+      valueColumn = 'SAFE_CAST(parsed_desconto_proportional_value AS FLOAT64)';
       break;
     default:
       console.error('Invalid kind received in fetchNfeDetails:', kind);
       return [];
   }
+
   const sql = `SELECT
     ${groupByColumn} AS produto,
     COUNT(*) AS n_nfes,
-    SUM(SAFE_CAST(${valueColumn} AS FLOAT64)) AS valor_total
+    SUM(${valueColumn}) AS valor_total
     FROM \`${process.env.BQ_TABLE}\`
-    WHERE ${filter} AND FORMAT_DATE('%Y-%m', DATE(data_emissao)) = @ym
+    WHERE ${filter}
+      AND FORMAT_DATE('%Y-%m', DATE(data_emissao)) = @ym
     GROUP BY produto
     ORDER BY valor_total DESC`;
+
   const [rows] = await bq.query({ query: sql, params: { ym } });
   return rows as NfeDetail[];
-}
-
-// ————————————————————————————————————————————————
-// New: sum of parsed_multa_juros_proportional_value by month
-export interface JurosMultaAgg {
-  Periodo: string;
-  valor: number;
 }
 
 export async function fetchJurosMultaAggregates(year: number): Promise<JurosMultaAgg[]> {
@@ -125,13 +115,11 @@ export async function fetchJurosMultaAggregates(year: number): Promise<JurosMult
       FORMAT_DATE('%Y-%m', DATE_TRUNC(DATE(data_emissao), MONTH)) AS Periodo,
       SUM(SAFE_CAST(parsed_multa_juros_proportional_value AS FLOAT64)) AS valor
     FROM \`${process.env.BQ_TABLE}\`
-    WHERE tipo_operacao='Saída'
-      AND finalidade='Normal/Venda'
-      AND cancelada='Não'
-      AND (nome_cenario='Venda' OR nome_cenario='Inativo')
+    WHERE ${SALES_BASE_FILTER}
       AND EXTRACT(YEAR FROM data_emissao) = @year
     GROUP BY Periodo
   `;
+
   const [rows] = await bq.query({ query: sql, params: { year } });
   return rows as JurosMultaAgg[];
-} 
+}

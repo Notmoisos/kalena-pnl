@@ -1,8 +1,3 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+module.exports = {
+  extends: ['next/core-web-vitals'],
 };
-
-module.exports = nextConfig;

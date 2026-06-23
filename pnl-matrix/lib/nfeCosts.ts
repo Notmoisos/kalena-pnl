@@ -1,4 +1,6 @@
 import { getBigQuery } from './bq';
+import { RETURNS_BASE_FILTER, SALES_BASE_FILTER } from './nfeFilters';
+
 const bq = getBigQuery();
 
 export type CogsKind = 'CPV' | 'CPV_Boni' | 'Perdas' | 'CPV_Devol';
@@ -24,10 +26,7 @@ export async function fetchCogsAggregates(year: number): Promise<CogsAgg[]> {
         'CPV' AS k,
         SAFE_CAST(parsed_unit_cost AS FLOAT64) * SAFE_CAST(parsed_quantity_units AS FLOAT64) AS amt
       FROM \`${process.env.BQ_TABLE}\`
-      WHERE tipo_operacao = 'Saída'
-        AND finalidade = 'Normal/Venda'
-        AND cancelada = 'Não'
-        AND (nome_cenario = 'Venda' OR nome_cenario = 'Inativo')
+      WHERE ${SALES_BASE_FILTER}
 
       UNION ALL
 
@@ -60,8 +59,7 @@ export async function fetchCogsAggregates(year: number): Promise<CogsAgg[]> {
         'CPV_Devol' AS k,
         SAFE_CAST(parsed_unit_cost AS FLOAT64) * SAFE_CAST(parsed_quantity_units AS FLOAT64) AS amt
       FROM \`${process.env.BQ_TABLE}\`
-      WHERE finalidade = 'Devolução'
-        AND cancelada = 'Não'
+      WHERE ${RETURNS_BASE_FILTER}
     )
     SELECT
       FORMAT_DATE('%Y-%m', p) AS Periodo,
@@ -81,12 +79,12 @@ export async function fetchCogsAggregates(year: number): Promise<CogsAgg[]> {
 export async function fetchCogsDetails(ym: string, kind: CogsKind): Promise<CogsDetail[]> {
   const filter =
     kind === 'CPV'
-      ? `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND (nome_cenario='Venda' OR nome_cenario='Inativo')`
+      ? SALES_BASE_FILTER
       : kind === 'CPV_Boni'
       ? `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND nome_cenario LIKE '%Bonificação%'`
       : kind === 'Perdas'
       ? `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não' AND nome_cenario='Baixa de estoque - Perda'`
-      : `finalidade='Devolução' AND cancelada='Não'`;
+      : RETURNS_BASE_FILTER;
 
   const sql = `
     SELECT

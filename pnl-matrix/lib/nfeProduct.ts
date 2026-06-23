@@ -1,5 +1,6 @@
 import { FamilyKind } from './nfeFamily'
 import { getBigQuery } from './bq'
+import { DISCOUNT_BASE_FILTER, RETURNS_BASE_FILTER, SALES_BASE_FILTER } from './nfeFilters'
 
 const bq = getBigQuery()
 
@@ -24,23 +25,19 @@ export async function fetchProductDetails(
 
   switch (kind) {
     case 'ReceitaBruta':
-      filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não'
-                AND (nome_cenario='Venda' OR nome_cenario='Inativo')`
+      filter = SALES_BASE_FILTER
       selector = 'SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64)'
       break
     case 'Devolucao':
-      filter = `finalidade='Devolução' AND cancelada='Não'`
+      filter = RETURNS_BASE_FILTER
       selector = 'SAFE_CAST(parsed_total_product_value AS FLOAT64) + SAFE_CAST(parsed_frete_value AS FLOAT64)'
       break
     case 'Desconto':
-      filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não'
-                AND (nome_cenario='Venda' OR nome_cenario='Inativo')
-                AND SAFE_CAST(parsed_desconto_proportional_value AS FLOAT64) > 0`
+      filter = DISCOUNT_BASE_FILTER
       selector = 'SAFE_CAST(parsed_desconto_proportional_value AS FLOAT64)'
       break
     case 'CPV':
-      filter = `tipo_operacao='Saída' AND finalidade='Normal/Venda' AND cancelada='Não'
-                AND (nome_cenario='Venda' OR nome_cenario='Inativo')`
+      filter = SALES_BASE_FILTER
       selector = 'SAFE_CAST(parsed_unit_cost AS FLOAT64) * SAFE_CAST(parsed_quantity_units AS FLOAT64)'
       break
     case 'CPV_Boni':
@@ -54,7 +51,7 @@ export async function fetchProductDetails(
       selector = 'SAFE_CAST(parsed_unit_cost AS FLOAT64) * SAFE_CAST(parsed_quantity_units AS FLOAT64)'
       break
     case 'CPV_Devol':
-      filter = `finalidade='Devolução' AND cancelada='Não'`
+      filter = RETURNS_BASE_FILTER
       selector = 'SAFE_CAST(parsed_unit_cost AS FLOAT64) * SAFE_CAST(parsed_quantity_units AS FLOAT64)'
       break
     default:
